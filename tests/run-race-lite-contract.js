@@ -13,34 +13,39 @@ const raw = JSON.parse(read('data/players.game-646.json'));
 const players = Solver.normalizeGamePlayers(raw).filter(player => player.enabled !== false);
 const scripts = manifest.content_scripts[0].js;
 
-assert.strictEqual(manifest.version, '1.0.0');
+assert.strictEqual(manifest.version, '1.0.1');
 assert.strictEqual(manifest.name, 'Friberg Race Lite');
 assert.deepStrictEqual(manifest.host_permissions, ['https://shnlfriberg.online/multi*']);
 assert.deepStrictEqual(scripts, [
   'solver.js',
-  'live-dom-adapter.js',
-  'feedback-parser-patch.js',
   'race-policy.js',
   'race-controller.js',
 ]);
 assert.strictEqual(manifest.content_scripts[0].run_at, 'document_start');
-['overlay.js', 'live-qol.js', 'content-script.js', 'autoplay.js', 'autoplay-hotfix.js', 'instant-next.js', 'automation-core.js']
+['live-dom-adapter.js', 'feedback-parser-patch.js', 'overlay.js', 'live-qol.js', 'content-script.js', 'autoplay.js', 'autoplay-hotfix.js', 'instant-next.js', 'automation-core.js']
   .forEach(file => assert.ok(!scripts.includes(file), `${file} must not run in race build`));
 
-assert.ok(controller.includes(".player-board-self"));
-assert.ok(controller.includes("form.input-bar"));
-assert.ok(controller.includes("li[role=\"option\"]"));
-assert.ok(controller.includes("new MouseEvent('mousedown'"));
-assert.ok(controller.includes('onMouseDown → onPick'));
-assert.ok(controller.includes('ESTIMATED_COOLDOWN_MS = 1470'));
+assert.ok(controller.includes('.player-board-self'));
+assert.ok(controller.includes('tbody > tr'));
+assert.ok(controller.includes('form.input-bar'));
+assert.ok(controller.includes('requestSubmit(controls.button)'));
+assert.ok(controller.includes('officialRows'));
+assert.ok(controller.includes('serverVisibleGuess'));
+assert.ok(controller.includes('rankDataDriftCandidates'));
+assert.ok(controller.includes('roleFromText'));
+assert.ok(controller.includes("'AWPer'"));
+assert.ok(controller.includes("'Coach'"));
+assert.ok(controller.includes("'Rifler'"));
+assert.ok(controller.includes('FALLBACK_MS = 8'));
 assert.ok(controller.includes('RETRY_MS = 8'));
 assert.ok(controller.includes('MutationObserver'));
 assert.ok(controller.includes('requestAnimationFrame(drive)'));
 assert.ok(controller.includes('Solver.buildFeedback(guess'));
+assert.ok(!controller.includes('exactOptions'));
+assert.ok(!controller.includes("new MouseEvent('mousedown'"));
 assert.ok(!controller.includes('WebSocket'));
 assert.ok(!controller.includes('socket.emit'));
 assert.ok(!controller.includes('chrome.notifications'));
-assert.ok(!controller.includes('2100'));
 
 assert.ok(policySource.includes("opening: 'refrezh'"));
 assert.ok(policySource.includes('expectedWrongRemaining'));
