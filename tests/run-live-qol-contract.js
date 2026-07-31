@@ -24,7 +24,7 @@ assert.strictEqual(pool.filter(player => String(player.nickname || player.nick |
 assert.ok(qol.includes("/(?:我的猜测|我的竞猜)[^0-9]{0,40}(\\d+)\\s*\\/\\s*8\\b/i"));
 assert.ok(qol.includes('firstZeroForIdentity'));
 assert.ok(qol.includes('roundChanged || boardChanged || counterReturnedToZero || firstZeroForIdentity'));
-assert.ok(qol.includes("forceLiveRebind('首猜 refrezh：按当前小局 0/8强制重置并重新绑定。")") || qol.includes('首猜 refrezh：按当前小局 0/8强制重置并重新绑定。'));
+assert.ok(qol.includes('首猜 refrezh：按当前小局 0/8 强制重置并重新绑定。'));
 assert.ok(qol.includes("fillSpecificPlayer('refrezh'"));
 assert.ok(qol.includes('baseFill.disabled'));
 assert.ok(qol.includes('callbacks.onFillNext?.()'));
