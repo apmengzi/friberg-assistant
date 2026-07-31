@@ -60,11 +60,14 @@ for (const relative of tracked) {
     continue;
   }
 
+  // Build the markers at runtime so this audit file does not flag its own rules.
+  const begin = '-----BEGIN';
+  const end = 'KEY-----';
   const privateKeyMarkers = [
-    '-----BEGIN PRIVATE KEY-----',
-    '-----BEGIN RSA PRIVATE KEY-----',
-    '-----BEGIN EC PRIVATE KEY-----',
-    '-----BEGIN OPENSSH PRIVATE KEY-----',
+    `${begin} PRIVATE ${end}`,
+    `${begin} RSA PRIVATE ${end}`,
+    `${begin} EC PRIVATE ${end}`,
+    `${begin} OPENSSH PRIVATE ${end}`,
   ];
   for (const marker of privateKeyMarkers) {
     if (text.includes(marker)) add(errors, file, 'private-key-block', marker);
