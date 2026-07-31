@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Friberg Assistant — Live DOM Assist",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "弗一把可见反馈助手：严格求解、随机首猜，以及用户触发并经过校验的填入与提交。",
   "permissions": ["storage", "scripting"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
@@ -18,13 +18,13 @@
         "http://localhost/*"
       ],
       "css": ["overlay.css"],
-      "js": ["solver.js", "automation-core.js", "live-dom-adapter.js", "overlay.js", "content-script.js"],
+      "js": ["solver.js", "automation-core.js", "live-dom-adapter.js", "feedback-parser-patch.js", "overlay.js", "content-script.js"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["page-bridge.js", "solver-worker.js", "solver.js", "automation-core.js", "live-dom-adapter.js", "data/game-players-646.json"],
+      "resources": ["page-bridge.js", "solver-worker.js", "solver.js", "automation-core.js", "live-dom-adapter.js", "feedback-parser-patch.js", "data/game-players-646.json"],
       "matches": [
         "<all_urls>",
         "http://127.0.0.1/*",

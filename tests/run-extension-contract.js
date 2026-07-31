@@ -18,6 +18,8 @@ assert.strictEqual(digest('solver.js'), digest('extension/solver.js'), 'extensio
 assert.strictEqual(digest('automation-core.js'), digest('extension/automation-core.js'), 'extension must ship the audited automation core');
 assert.strictEqual(digest('live-dom-adapter.js'), digest('extension/live-dom-adapter.js'), 'extension must ship the shared live DOM adapter');
 assert.ok(manifest.content_scripts[0].js.includes('live-dom-adapter.js'));
+assert.ok(manifest.content_scripts[0].js.includes('feedback-parser-patch.js'));
+assert.ok(manifest.content_scripts[0].js.indexOf('feedback-parser-patch.js') < manifest.content_scripts[0].js.indexOf('content-script.js'));
 
 const content = read('extension/content-script.js');
 assert.ok(content.includes('isLiveAssistSurface'));
@@ -64,6 +66,12 @@ assert.ok(adapter.includes('[class*="arrow" i]'));
 assert.ok(adapter.includes("node.getAttribute?.('class')"));
 assert.ok(adapter.includes('feedbackRowFingerprint'));
 assert.ok(!adapter.includes('WebSocket'));
+
+const parserPatch = read('extension/feedback-parser-patch.js');
+assert.ok(parserPatch.includes('extractNickname'));
+assert.ok(parserPatch.includes('trailingCellTexts'));
+assert.ok(parserPatch.includes('FEEDBACK_PARSER_PATCH_VERSION'));
+require('./run-feedback-parser-patch.js');
 
 console.log(JSON.stringify({
   suite: 'extension-contract',
