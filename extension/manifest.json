@@ -17,7 +17,7 @@
         "http://127.0.0.1/*",
         "http://localhost/*"
       ],
-      "css": ["overlay.css"],
+      "css": ["overlay.css", "live-qol.css"],
       "js": ["solver.js", "automation-core.js", "live-dom-adapter.js", "feedback-parser-patch.js", "overlay.js", "live-qol.js", "content-script.js"],
       "run_at": "document_idle"
     }
