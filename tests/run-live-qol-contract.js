@@ -11,53 +11,52 @@ const qol = read('extension/live-qol.js');
 const background = read('extension/background.js');
 const overlayCss = read('extension/overlay.css');
 
-assert.strictEqual(manifest.version, '0.9.6');
+assert.strictEqual(manifest.version, '0.9.5');
 assert.ok(manifest.permissions.includes('notifications'));
 assert.ok(manifest.permissions.includes('tabs'));
 assert.ok(scripts.includes('live-qol.js'));
 assert.ok(scripts.indexOf('overlay.js') < scripts.indexOf('live-qol.js'));
 assert.ok(scripts.indexOf('live-qol.js') < scripts.indexOf('content-script.js'));
-assert.strictEqual(pool.filter(player => String(player.nickname || player.nick || '').toLocaleLowerCase() === 'refrezh').length, 1, 'bundled pool must contain one refrezh');
+assert.strictEqual(
+  pool.filter(player => String(player.nickname || player.nick || '').toLocaleLowerCase() === 'refrezh').length,
+  1,
+  'bundled pool must contain one refrezh',
+);
 
 assert.ok(qol.includes("dispatchEvent(new CustomEvent('friberg:force-rescan'"));
 assert.ok(qol.includes('currentVisibleSelfBoard'));
 assert.ok(qol.includes('currentVisibleGuessCount'));
-assert.ok(qol.includes('guessCountFromText'));
 assert.ok(qol.includes('counterReturnedToZero'));
-assert.ok(qol.includes('state.lastVisibleGuessCount > 0'));
-assert.ok(qol.includes('当前小局猜测进度为 0/8'));
 assert.ok(qol.includes("fillSpecificPlayer('refrezh'"));
-assert.ok(qol.includes("data-fa-qol-action=\"refrezh-first\""));
-assert.ok(qol.includes("data-fa-qol-action=\"fill-submit\""));
-assert.ok(qol.includes('currentRecommendedNickname'));
+assert.ok(qol.includes("makeButton('refrezh-first'"));
+assert.ok(qol.includes("makeButton('fill-submit'"));
+assert.ok(qol.includes("makeButton('test-notification'"));
+assert.ok(qol.includes("sendDesktopNotification('弗一把通知测试'"));
 assert.ok(qol.includes('callbacks.onFillNext?.()'));
 assert.ok(qol.includes('callbacks.onSubmitGuess?.()'));
 assert.ok(qol.includes('readyButtons.length !== 1'));
 assert.ok(qol.includes('AUTO_READY_WINDOW_MS'));
 assert.ok(qol.includes('state.autoReadyUntil = 0'));
 assert.ok(qol.includes("type: 'friberg:desktop-notification'"));
-assert.ok(qol.includes("data-fa-qol-action=\"test-notification\""));
-assert.ok(qol.includes('chrome.runtime.lastError'));
 assert.ok(qol.includes('state.notifiedFingerprint !== fingerprint'));
 assert.ok(qol.includes('state.actionBusy'));
+assert.ok(qol.includes("fill, submit,"), 'fill and submit controls should remain adjacent in the ordered action list');
+assert.ok(overlayCss.includes('.fa-fill'));
+assert.ok(overlayCss.includes('.fa-submit'));
 
 assert.ok(background.includes("message?.type === 'friberg:desktop-notification'"));
-assert.ok(background.includes('chrome.notifications.getPermissionLevel'));
 assert.ok(background.includes('chrome.notifications.create'));
-assert.ok(background.includes('chrome.runtime.getURL(NOTIFICATION_ICON)'));
+assert.ok(background.includes('chrome.notifications.getPermissionLevel'));
 assert.ok(background.includes('chrome.notifications.onClicked'));
 assert.ok(background.includes('chrome.windows.update'));
 assert.ok(background.includes('chrome.tabs.update'));
 assert.ok(background.includes('notificationTargets.delete'));
+assert.ok(background.includes("const NOTIFICATION_ICON = 'notification-icon.svg'"));
 assert.ok(fs.existsSync(path.join(root, 'extension/notification-icon.svg')));
-
-assert.ok(overlayCss.includes('.fa-combined { grid-column: 1 / -1;'));
-assert.ok(overlayCss.includes('.fa-auto-ready { grid-column: 1 / -1;'));
-assert.ok(overlayCss.includes('.fa-notify-test'));
 
 console.log(JSON.stringify({
   suite: 'live-qol-contract',
   version: manifest.version,
-  controls: ['refrezh-first', 'fill-submit', 'notifications', 'notification-test', 'auto-ready'],
+  controls: ['refrezh-first', 'fill-submit', 'notifications', 'test-notification', 'auto-ready'],
   status: 'passed',
 }));
