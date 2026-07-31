@@ -1,13 +1,33 @@
-﻿.env
+.env
 .env.*
 *.log
 *.zip
 node_modules/
 
+# Local automation configuration and browser snapshots
+.codex/
+.playwright-mcp/
+
+# Python/runtime caches
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local secrets and license records
 seller-secrets/
 license-records/
-
 **/private-license-key.pem
 **/private-*.pem
 **/*admin*token*
 **/*signing*secret*
+
+# Runtime output and evidence bundles
+work/server.err
+work/server.out
+diagnostics/
+evidence/
+logs/*.jsonl
+
+# Downloaded/generated audit materials
+artifacts/live-site-assets/
+artifacts/backups/
