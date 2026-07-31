@@ -2,7 +2,7 @@ name: Friberg Assistant CI
 
 on:
   push:
-    branches: [main, "fix/**", "feature/**", "chore/**"]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
