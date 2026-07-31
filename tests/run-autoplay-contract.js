@@ -58,7 +58,7 @@ assert.ok(hotfix.includes('已离开“单人 · 完整版”实际对局页面'
 assert.ok(instantNext.includes('MutationObserver'));
 assert.ok(instantNext.includes('requestAnimationFrame(tick)'));
 assert.ok(instantNext.includes('data-fa-qol-action="fill-submit"'));
-assert.ok(instantNext.includes('data-fa-instant-lock'));
+assert.ok(instantNext.includes('faInstantLock'));
 
 assert.ok(css.includes('.fa-autoplay'));
 assert.ok(css.includes('grid-column: 1 / -1'));
