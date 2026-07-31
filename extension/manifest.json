@@ -1,12 +1,21 @@
 {
   "manifest_version": 3,
   "name": "Friberg Assistant — Live DOM Assist",
-  "version": "0.9.6",
-  "description": "弗一把可见反馈助手：严格求解、每小局首猜、匹配通知与一键填入提交。",
-  "permissions": ["storage", "scripting", "notifications", "tabs"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "version": "0.9.7",
+  "description": "弗一把可见反馈助手：多人本次匹配托管、单人本局全自动、严格求解与受控提交。",
+  "permissions": [
+    "storage",
+    "scripting",
+    "notifications",
+    "tabs"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "host_permissions": [
     "https://shnlfriberg.online/multi*",
+    "https://shnlfriberg.online/single*",
     "http://127.0.0.1/*",
     "http://localhost/*"
   ],
@@ -14,17 +23,39 @@
     {
       "matches": [
         "https://shnlfriberg.online/multi*",
+        "https://shnlfriberg.online/single*",
         "http://127.0.0.1/*",
         "http://localhost/*"
       ],
-      "css": ["overlay.css", "live-qol.css"],
-      "js": ["solver.js", "automation-core.js", "live-dom-adapter.js", "feedback-parser-patch.js", "overlay.js", "live-qol.js", "content-script.js"],
+      "css": [
+        "overlay.css",
+        "live-qol.css",
+        "autoplay.css"
+      ],
+      "js": [
+        "solver.js",
+        "automation-core.js",
+        "live-dom-adapter.js",
+        "feedback-parser-patch.js",
+        "overlay.js",
+        "live-qol.js",
+        "content-script.js",
+        "autoplay.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["page-bridge.js", "solver-worker.js", "solver.js", "automation-core.js", "live-dom-adapter.js", "feedback-parser-patch.js", "data/game-players-646.json"],
+      "resources": [
+        "page-bridge.js",
+        "solver-worker.js",
+        "solver.js",
+        "automation-core.js",
+        "live-dom-adapter.js",
+        "feedback-parser-patch.js",
+        "data/game-players-646.json"
+      ],
       "matches": [
         "<all_urls>",
         "http://127.0.0.1/*",
@@ -32,7 +63,11 @@
       ]
     }
   ],
-  "background": { "service_worker": "background.js" },
+  "background": {
+    "service_worker": "background.js"
+  },
   "options_page": "options.html",
-  "action": { "default_title": "Friberg Assistant" }
+  "action": {
+    "default_title": "Friberg Assistant"
+  }
 }
