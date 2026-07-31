@@ -8,6 +8,11 @@
   const CACHE_LIMIT = 4096;
   const recommendationCache = new Map();
   const originalRecommend = Automation.AssistantSession.prototype.recommend;
+  const runtimePath = globalThis.location?.pathname || '';
+  const runtimeHost = globalThis.location?.hostname || '';
+  const runtimePatchAllowed = !globalThis.location
+    || runtimePath.startsWith('/single')
+    || ['127.0.0.1', 'localhost', '[::1]'].includes(runtimeHost);
 
   const entropyOf = (groups, total) => {
     let entropy = 0;
@@ -109,11 +114,11 @@
     const result = Object.freeze({
       ...best,
       purpose: 'answer',
-      strategy: 'speed-first',
+      strategy: 'single-speed-first',
       cacheHit: false,
       reason: legalCandidates.length === 1
         ? '只剩唯一合法候选，立即提交答案。'
-        : `速度优先：从 ${legalCandidates.length} 名合法候选中直接猜答案；本猜命中率约 ${(100 / legalCandidates.length).toFixed(1)}%。`,
+        : `单人速度实验：从 ${legalCandidates.length} 名合法候选中直接猜答案；本猜命中率约 ${(100 / legalCandidates.length).toFixed(1)}%。`,
     });
     remember(cacheKey, { probeIndex: bestIndex, evaluation: result });
     return result;
@@ -145,25 +150,28 @@
       ));
   }
 
-  Automation.AssistantSession.prototype.recommend = function speedFirstRecommend(maxGuesses = 8) {
-    const original = originalRecommend.call(this, maxGuesses);
-    if (!this.history?.length || !original?.candidates?.length) return original;
+  if (runtimePatchAllowed) {
+    Automation.AssistantSession.prototype.recommend = function singleSpeedFirstRecommend(maxGuesses = 8) {
+      const original = originalRecommend.call(this, maxGuesses);
+      if (!this.history?.length || !original?.candidates?.length) return original;
 
-    const recommendation = recommendSpeed({
-      matrix: this.matrix,
-      candidates: original.candidates,
-      guessedKeys: this.guessedKeys,
-      remainingGuesses: original.remainingGuesses,
-    });
-    this.lastRecommendation = recommendation;
-    this.lastStrategy = 'speed-first';
-    return Object.freeze({ ...original, recommendation });
-  };
+      const recommendation = recommendSpeed({
+        matrix: this.matrix,
+        candidates: original.candidates,
+        guessedKeys: this.guessedKeys,
+        remainingGuesses: original.remainingGuesses,
+      });
+      this.lastRecommendation = recommendation;
+      this.lastStrategy = 'single-speed-first';
+      return Object.freeze({ ...original, recommendation });
+    };
+  }
 
   globalThis.FribergSpeedStrategy = Object.freeze({
     recommendSpeed,
     evaluateOpening,
     rankOpenings,
+    runtimePatchAllowed,
     cacheSize: () => recommendationCache.size,
     clearCache: () => recommendationCache.clear(),
   });
