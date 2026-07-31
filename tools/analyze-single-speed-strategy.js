@@ -19,6 +19,7 @@ const refrezhIndex = players.findIndex(player => GameSolver.normalize(player.nic
 function firstGroups(openingIndex) {
   const groups = new Map();
   for (const answerIndex of allIndices) {
+    if (answerIndex === openingIndex) continue;
     const signature = matrix.signatures[openingIndex][answerIndex];
     if (!groups.has(signature)) groups.set(signature, []);
     groups.get(signature).push(answerIndex);
@@ -87,17 +88,22 @@ function simulateOpening(openingIndex, mode) {
   };
 }
 
-const raceResults = openingRank.map(entry => ({
-  opening: {
+function openingSummary(entry) {
+  return {
     nickname: entry.player.nick,
-    partitions: entry.partitions,
-    worstGroup: entry.worstGroup,
-    expectedRemaining: entry.expectedRemaining,
-    entropy: entry.entropy,
-    singletonBuckets: entry.singletonBuckets,
+    wrongPartitions: entry.wrongPartitions,
+    decisionOutcomes: entry.decisionOutcomes,
+    worstWrongGroup: entry.worstWrongGroup,
+    expectedWrongRemaining: entry.expectedWrongRemaining,
+    wrongEntropy: entry.wrongEntropy,
+    singletonWrongBuckets: entry.singletonWrongBuckets,
     twoGuessHitRateUniform: entry.twoGuessHitRateUniform,
     guaranteedBySecondRate: entry.guaranteedBySecondRate,
-  },
+  };
+}
+
+const raceResults = openingRank.map(entry => ({
+  opening: openingSummary(entry),
   simulation: simulateOpening(entry.probeIndex, 'race'),
 }));
 
@@ -119,26 +125,17 @@ const report = {
   generatedAt: new Date().toISOString(),
   players: players.length,
   interpretation: {
-    twoGuessHitRateUniform: 'For a fixed first guess and a direct legal-candidate second guess, the exact uniform-answer hit rate equals non-empty feedback partitions divided by the pool size.',
-    guaranteedBySecondRate: 'Fraction of answers landing in singleton feedback buckets after the opening.',
+    twoGuessHitRateUniform: 'Exact uniform-answer probability of solving in at most two guesses: opening-correct terminal outcome plus one direct candidate for every non-empty wrong-answer feedback bucket, divided by pool size.',
+    guaranteedBySecondRate: 'Opening-correct answer plus all wrong-answer singleton buckets, divided by pool size.',
     race: 'After every visible feedback, guess a legal answer immediately; ties prefer the candidate that best separates the remaining wrong-answer cases.',
     balanced: 'Existing minimax/expected-remaining strategy, which may use a non-answer probe.',
   },
   refrezh: {
-    opening: openingRank.find(entry => entry.probeIndex === refrezhIndex),
+    opening: openingSummary(openingRank.find(entry => entry.probeIndex === refrezhIndex)),
     race: simulateOpening(refrezhIndex, 'race'),
     balanced: simulateOpening(refrezhIndex, 'balanced'),
   },
-  bestByOpeningPartitions: openingRank.slice(0, 30).map(entry => ({
-    nickname: entry.player.nick,
-    partitions: entry.partitions,
-    worstGroup: entry.worstGroup,
-    expectedRemaining: entry.expectedRemaining,
-    entropy: entry.entropy,
-    singletonBuckets: entry.singletonBuckets,
-    twoGuessHitRateUniform: entry.twoGuessHitRateUniform,
-    guaranteedBySecondRate: entry.guaranteedBySecondRate,
-  })),
+  bestByTwoGuessRate: openingRank.slice(0, 30).map(openingSummary),
   bestRacePolicies: raceResults.slice(0, 30),
   balancedComparisons,
   cacheSize: Speed.cacheSize(),
@@ -152,7 +149,7 @@ fs.writeFileSync(
 console.log(JSON.stringify({
   players: report.players,
   refrezh: report.refrezh,
-  bestOpeningByPartitions: report.bestByOpeningPartitions[0],
+  bestOpeningByTwoGuessRate: report.bestByTwoGuessRate[0],
   bestRacePolicy: report.bestRacePolicies[0],
   bestBalancedComparison: report.balancedComparisons[0],
 }));
