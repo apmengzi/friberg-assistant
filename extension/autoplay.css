@@ -1,0 +1,15 @@
+.friberg-assistant-overlay .fa-autoplay {
+  grid-column: 1 / -1;
+  color: #09262b;
+  background: #7ee5bf;
+  border-color: #b7ffe5;
+  font-weight: 850;
+}
+.friberg-assistant-overlay .fa-autoplay:hover:not(:disabled) {
+  background: #a6f2d8;
+}
+.friberg-assistant-overlay .fa-autoplay[data-armed="true"] {
+  color: #fff4d9;
+  background: #6a4525;
+  border-color: #e8ad4c;
+}
