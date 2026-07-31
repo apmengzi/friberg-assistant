@@ -39,7 +39,8 @@ assert.ok(background.includes('chrome.notifications.onClicked'));
 assert.ok(background.includes('chrome.windows.update'));
 assert.ok(background.includes('chrome.tabs.update'));
 assert.ok(background.includes('notificationTargets.delete'));
-assert.ok(fs.existsSync(path.join(root, 'extension/notification-icon.svg')));
+assert.ok(background.includes("data:image/png;base64,"));
+assert.ok(!background.includes('notification-icon.svg'));
 
 console.log(JSON.stringify({
   suite: 'live-qol-contract',
