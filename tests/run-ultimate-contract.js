@@ -38,20 +38,34 @@ for (const token of [
   'handleReadyCheck',
   'handleTerminal',
   'requestOneShot',
-  'Dom.submitExact',
-  'RETRY_AFTER_MS',
+  'Dom.prepareExact',
+  'Dom.submitPrepared',
+  'MULTI_COOLDOWN_MS = 2_000',
+  'COOLDOWN_EARLY_MS = 15',
+  'SUBMIT_RETRY_MS = 12',
+  'DRIVE_INTERVAL_MS = 12',
+  'state.cooldownReadyAt',
+  'performance.now() + MULTI_COOLDOWN_MS - COOLDOWN_EARLY_MS',
+  'pendingAccepted',
 ]) assert.ok(controller.includes(token), `controller missing ${token}`);
+assert.ok(!controller.includes('RETRY_AFTER_MS = 4_500'), 'old 4.5 second retry delay must not return');
 
 for (const token of [
   '.player-board-self',
   '.single-game-page',
   'table.game-table tbody > tr',
+  'prepareExact',
+  'submitPrepared',
   'requestSubmit(surface.button)',
+  '.room-ready-actions button',
+  'answerModal',
+  '.input-dock .input-bar',
   'readyButton',
   'againButton',
   'roleFromText',
   'visibleGuess',
 ]) assert.ok(dom.includes(token), `DOM adapter missing ${token}`);
+assert.ok(dom.includes("!element.querySelector('input[role=\"combobox\"], input.input')"));
 
 for (const token of [
   '单人本局自动',
