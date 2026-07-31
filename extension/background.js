@@ -1,6 +1,7 @@
 const PRIVATE_SCRIPT_ID = 'friberg-authorized-private-adapter';
 const PRIVATE_FILES = ['solver.js', 'automation-core.js', 'overlay.js', 'content-script.js'];
 const NOTIFICATION_PREFIX = 'friberg-match-';
+const NOTIFICATION_ICON_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAACHUlEQVR4nO3cwU1bQRRAUROlAFIJOzasI2qgjtSROlIDYk09lEBWSNlAFDzzbOees0X8sTSX943m21fXN7evB7K+nPoFcFoCiBNAnADiBBAngDgBxAkgTgBxAogTQJwA4gQQJ4A4AcQJIE4AcQKIE0CcAOIEECeAOAHECSBOAHECiBNAnADiBBAngDgBxH2dXvDx+dv0khfn/u5lbC0TIE4AcQKIE0CcAOIEECeAOAHECSBOAHECiBNAnADiBBA3fhx8jMlj0goTIE4AcQKIE0CcAOIEECeAOAHECSBOAHECiBNAnADiBBAngDgBxF3UAyGX+t0C5/wgiwkQJ4A4AcQJIE4AcQKIE0CcAOIEECeAOAHECSBOAHEXdRr4v/j+68e7P3t6+Dn4Sg6Hq+ub29fJBY850j3nY9W/+WjT3zMRg1vAgM9s/jG/9y/cAjZasYFv19g1DUyATVb/9e6aBgLYYNdm7biuAOIEsNjuN26rry+AhSBeta9eRwBxAogTwCJT43/1egKIE0CcAOIEECeAOAHECWCR6Sd5Vq0ngDgBxAlgoanbwMp1BLDY7ghWX18AcQLYYNcU2HFdAWyyerN2ReWx8I3eNu2Yo9vd7ylMgAGf3cSJ/ypMgCF/buY5fTZQACcwvckfcQuIE0CcAOIEECeAuPFvCOG8mABxAogTQJwA4gQQJ4A4AcQJIE4AcQKIE0CcAOIEECeAuN9ZG0kdCUNodQAAAABJRU5ErkJggg==';
 const notificationTargets = new Map();
 
 function matchPatternForOrigin(origin) {
@@ -32,7 +33,7 @@ async function createDesktopNotification(message, sender) {
   if (Number.isInteger(tabId)) notificationTargets.set(notificationId, { tabId, windowId });
   await chrome.notifications.create(notificationId, {
     type: 'basic',
-    iconUrl: chrome.runtime.getURL('notification-icon.svg'),
+    iconUrl: NOTIFICATION_ICON_URL,
     title: String(message.title || '弗一把助手'),
     message: String(message.message || '页面状态已变化。'),
     priority: 2,
