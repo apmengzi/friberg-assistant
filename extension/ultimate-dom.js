@@ -115,7 +115,7 @@
     return true;
   }
 
-  function submitExact(nickname) {
+  function prepareExact(nickname) {
     const surface = inputSurface();
     if (!surface) return Object.freeze({ status: 'missing-surface' });
     const desired = compact(nickname);
@@ -127,8 +127,24 @@
     if (surface.button.disabled || surface.button.getAttribute('aria-disabled') === 'true') {
       return Object.freeze({ status: 'waiting-react', surface });
     }
+    return Object.freeze({ status: 'ready', surface });
+  }
+
+  function submitPrepared(surface) {
+    if (!surface?.form?.isConnected || !surface?.button?.isConnected) {
+      return Object.freeze({ status: 'stale-surface' });
+    }
+    if (surface.button.disabled || surface.button.getAttribute('aria-disabled') === 'true') {
+      return Object.freeze({ status: 'waiting-react', surface });
+    }
     surface.form.requestSubmit(surface.button);
     return Object.freeze({ status: 'submitted', surface });
+  }
+
+  function submitExact(nickname, { allowSubmit = true } = {}) {
+    const prepared = prepareExact(nickname);
+    if (prepared.status !== 'ready' || !allowSubmit) return prepared;
+    return submitPrepared(prepared.surface);
   }
 
   function levelOf(cell) {
@@ -246,23 +262,38 @@
   }
 
   function readyButton() {
-    const candidates = buttons().filter(button => /^(准备|确认准备|我已准备|ready|accept)$/i.test(compact(button.innerText || button.textContent)));
-    if (candidates.length !== 1) return null;
-    const button = candidates[0];
-    if (button.disabled || button.getAttribute('aria-disabled') === 'true') return null;
-    return button;
+    const scoped = Array.from(document.querySelectorAll('.room-ready-actions button, .ready-check button'))
+      .filter(visible)
+      .filter(button => !button.disabled && button.getAttribute('aria-disabled') !== 'true')
+      .filter(button => !/(取消|离开|拒绝|cancel|decline)/i.test(compact(button.innerText || button.textContent)));
+    const exact = scoped.filter(button => /(准备|确认|接受|ready|accept)/i.test(compact(button.innerText || button.textContent)));
+    if (exact.length === 1) return exact[0];
+
+    const fallback = buttons()
+      .filter(button => !button.disabled && button.getAttribute('aria-disabled') !== 'true')
+      .filter(button => /^(准备|确认准备|我已准备|接受匹配|ready|accept)$/i.test(compact(button.innerText || button.textContent)));
+    return fallback.length === 1 ? fallback[0] : null;
+  }
+
+  function answerModal() {
+    return Array.from(document.querySelectorAll('[aria-modal="true"], .answer-overlay, .modal'))
+      .find(element => visible(element) && /(恭喜|正确答案|本局结束|猜对|congratulations|correct answer|game ended)/i.test(compact(element.innerText || element.textContent))) || null;
   }
 
   function againButton() {
-    const modal = Array.from(document.querySelectorAll('[aria-modal="true"], .answer-overlay, .modal')).find(visible);
-    const pattern = /^(再来一局|再玩一次|再来一次|重新开始|again|play again|restart)$/i;
-    return buttonByText(pattern, modal || document);
+    const modal = answerModal();
+    if (modal) {
+      return buttonByText(/^(再来一局|再玩一次|再来一次|重新开始|again|play again|restart)$/i, modal);
+    }
+    const dock = Array.from(document.querySelectorAll('.input-dock .input-bar, .single-game-page .input-bar'))
+      .find(element => visible(element) && !element.querySelector('input[role="combobox"], input.input'));
+    return dock ? buttonByText(/^(再来一局|再玩一次|再来一次|again|play again)$/i, dock) : null;
   }
 
   function terminalSingle() {
-    const modal = Array.from(document.querySelectorAll('[aria-modal="true"], .answer-overlay, .modal')).find(visible);
-    if (modal && /(恭喜|正确答案|本局结束|猜对|congratulations|correct answer|game ended)/i.test(compact(modal.innerText))) return true;
-    return Boolean(!inputSurface() && againButton());
+    if (answerModal()) return true;
+    const count = guessCount('single', ownBoard('single'));
+    return Number.isInteger(count) && count > 0 && !inputSurface() && Boolean(againButton());
   }
 
   function terminalMulti(excludeElement = null) {
@@ -279,7 +310,7 @@
   }
 
   return Object.freeze({
-    version: 2,
+    version: 3,
     visible,
     compact,
     normalize,
@@ -291,9 +322,12 @@
     roundToken,
     inputSurface,
     setInputValue,
+    prepareExact,
+    submitPrepared,
     submitExact,
     parseHistory,
     readyButton,
+    answerModal,
     againButton,
     terminalSingle,
     terminalMulti,
