@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 cd /d "%~dp0.."
 
- echo === Friberg Assistant update / test / build ===
+ echo === Friberg Race Lite update / test / build ===
  echo Repository: %CD%
  echo.
 
@@ -25,10 +25,8 @@ cd /d "%~dp0.."
  if errorlevel 1 goto :fail
 
  echo.
- echo [4/6] Extension and automation contracts
- node tests\run-extension-contract.js
- if errorlevel 1 goto :fail
- node tests\run-automation-core.js
+ echo [4/6] Pure race contract and all-646 simulation
+ node tests\run-race-lite-contract.js
  if errorlevel 1 goto :fail
 
  echo.
@@ -37,7 +35,7 @@ cd /d "%~dp0.."
  if errorlevel 1 goto :fail
 
  echo.
- echo [6/6] Build loadable personal extension
+ echo [6/6] Build minimal seven-file race extension
  powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\package-edge-extension.ps1
  if errorlevel 1 goto :fail
 
