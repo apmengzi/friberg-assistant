@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -45,8 +46,7 @@ jobs:
 
       - name: Validate manifests and 646-player pool
         shell: pwsh
-        run: |
-          node -e "const fs=require('fs'); const manifests=['extension/manifest.json','dist/friberg-assistant-personal/manifest.json','dist/friberg-assistant-commercial/manifest.json']; for (const f of manifests) JSON.parse(fs.readFileSync(f,'utf8').replace(/^\uFEFF/,'')); const pool=JSON.parse(fs.readFileSync('data/players.game-646.json','utf8')); if(pool.length!==646) throw new Error('Expected 646 players, got '+pool.length); console.log('PASS: manifests and 646-player pool');"
+        run: node -e "const fs=require('fs'); const manifests=['extension/manifest.json','dist/friberg-assistant-personal/manifest.json','dist/friberg-assistant-commercial/manifest.json']; for (const f of manifests) JSON.parse(fs.readFileSync(f,'utf8').replace(/^\uFEFF/,'')); const pool=JSON.parse(fs.readFileSync('data/players.game-646.json','utf8')); if(pool.length!==646) throw new Error('Expected 646 players, got '+pool.length); console.log('PASS: manifests and 646-player pool');"
 
       - name: Run strict solver regression
         run: node tests/run-regression.js
@@ -71,17 +71,16 @@ jobs:
 
       - name: Build personal extension
         shell: pwsh
-        run: powershell -ExecutionPolicy Bypass -File .\tools\package-edge-extension.ps1
+        run: ./scripts/build-personal-extension.ps1
 
       - name: Validate delivery ZIP
-        run: node tests/run-delivery-contract.js
+        shell: pwsh
+        run: ./scripts/validate-personal-zip.ps1
 
       - name: Upload personal extension artifact
         uses: actions/upload-artifact@v4
         with:
           name: friberg-assistant-personal-${{ github.sha }}
-          path: |
-            dist/friberg-assistant-extension/
-            dist/friberg-assistant-extension.zip
+          path: dist/friberg-assistant-extension.zip
           if-no-files-found: error
           retention-days: 14
