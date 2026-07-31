@@ -35,21 +35,25 @@
   }
 
   function ownBoard(kind = routeKind()) {
-    const selector = kind === 'multi'
-      ? '.player-board-self table.game-table'
-      : '.single-game-board table.game-table';
-    return Array.from(document.querySelectorAll(selector)).find(visible) || null;
+    const selectors = kind === 'multi'
+      ? ['.player-board-self']
+      : ['.single-game-board', '.single-game-page'];
+    for (const selector of selectors) {
+      const element = Array.from(document.querySelectorAll(selector)).find(visible);
+      if (element) return element;
+    }
+    return null;
   }
 
   function rows(board = ownBoard()) {
     if (!(board instanceof Element)) return [];
-    return Array.from(board.querySelectorAll('tbody > tr'))
+    return Array.from(board.querySelectorAll('table.game-table tbody > tr, tbody > tr'))
       .filter(visible)
       .filter(row => row.children.length === 8);
   }
 
   function multiCount(board) {
-    const card = board?.closest('.player-board-self');
+    const card = board?.matches?.('.player-board-self') ? board : board?.closest?.('.player-board-self');
     const match = compact(card?.querySelector('h3')?.innerText || card?.innerText)
       .match(/(\d+)\s*\/\s*8\b/);
     const count = Number(match?.[1]);
@@ -175,7 +179,7 @@
     const country = compact(cells[2]?.textContent) || local.gameCountry;
     const role = roleFromText(cells[4]?.textContent, local.gameRole);
     const active = activeFromText(cells[7]?.textContent, local.gameActive);
-    const normalized = Solver.normalizeGamePlayer({
+    return Solver.normalizeGamePlayer({
       id: local.id,
       nickname: local.nick,
       real_name: local.realName,
@@ -190,7 +194,6 @@
       is_enabled: local.enabled !== false,
       difficulty: local.difficulty,
     });
-    return normalized;
   }
 
   function parseHistory({ board = ownBoard(), players = [], expectedCount = null } = {}) {
@@ -259,7 +262,7 @@
   function terminalSingle() {
     const modal = Array.from(document.querySelectorAll('[aria-modal="true"], .answer-overlay, .modal')).find(visible);
     if (modal && /(恭喜|正确答案|本局结束|猜对|congratulations|correct answer|game ended)/i.test(compact(modal.innerText))) return true;
-    return Boolean(!inputSurface() && ownBoard('single') && againButton());
+    return Boolean(!inputSurface() && againButton());
   }
 
   function terminalMulti(excludeElement = null) {
@@ -268,11 +271,15 @@
   }
 
   function playable(kind = routeKind()) {
-    return Boolean(ownBoard(kind) && inputSurface());
+    const surface = inputSurface();
+    if (!surface) return false;
+    const board = ownBoard(kind);
+    const count = guessCount(kind, board);
+    return Number.isInteger(count) && count >= 0 && count <= 8;
   }
 
   return Object.freeze({
-    version: 1,
+    version: 2,
     visible,
     compact,
     normalize,
