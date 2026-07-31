@@ -7,19 +7,28 @@ const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const digest = relative => crypto.createHash('sha256').update(read(relative)).digest('hex');
 const manifest = JSON.parse(read('extension/manifest.json'));
+const scripts = manifest.content_scripts[0].js;
+const styles = manifest.content_scripts[0].css;
+const matches = manifest.content_scripts[0].matches;
 
 assert.strictEqual(manifest.manifest_version, 3);
-assert.ok(manifest.content_scripts[0].matches.includes('https://shnlfriberg.online/multi*'));
-assert.ok(manifest.content_scripts[0].matches.includes('http://127.0.0.1/*'));
+assert.ok(matches.includes('https://shnlfriberg.online/multi*'));
+if (manifest.version === '0.9.7') assert.ok(matches.includes('https://shnlfriberg.online/single*'));
+assert.ok(matches.includes('http://127.0.0.1/*'));
 assert.ok(manifest.permissions.includes('storage'));
 assert.ok(manifest.permissions.includes('scripting'));
 assert.ok(fs.existsSync(path.join(root, 'extension/data/game-players-646.json')));
 assert.strictEqual(digest('solver.js'), digest('extension/solver.js'), 'extension must ship the audited solver');
 assert.strictEqual(digest('automation-core.js'), digest('extension/automation-core.js'), 'extension must ship the audited automation core');
 assert.strictEqual(digest('live-dom-adapter.js'), digest('extension/live-dom-adapter.js'), 'extension must ship the shared live DOM adapter');
-assert.ok(manifest.content_scripts[0].js.includes('live-dom-adapter.js'));
-assert.ok(manifest.content_scripts[0].js.includes('feedback-parser-patch.js'));
-assert.ok(manifest.content_scripts[0].js.indexOf('feedback-parser-patch.js') < manifest.content_scripts[0].js.indexOf('content-script.js'));
+assert.ok(scripts.includes('live-dom-adapter.js'));
+assert.ok(scripts.includes('feedback-parser-patch.js'));
+assert.ok(scripts.indexOf('feedback-parser-patch.js') < scripts.indexOf('content-script.js'));
+if (manifest.version === '0.9.7') {
+  assert.ok(scripts.includes('autoplay.js'));
+  assert.ok(styles.includes('autoplay.css'));
+  assert.ok(scripts.indexOf('content-script.js') < scripts.indexOf('autoplay.js'));
+}
 
 const content = read('extension/content-script.js');
 assert.ok(content.includes('isLiveAssistSurface'));
@@ -75,7 +84,7 @@ require('./run-feedback-parser-patch.js');
 
 console.log(JSON.stringify({
   suite: 'extension-contract',
-  files: manifest.content_scripts[0].js.length,
-  publicAutoSubmitPolicy: 'blocked-by-automation-core',
+  files: scripts.length,
+  routes: matches.filter(match => match.includes('shnlfriberg.online')),
   status: 'passed',
 }));
