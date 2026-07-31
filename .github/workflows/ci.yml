@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main, fix/live-qol-096-clean]
+    branches: [main]
     types: [ready_for_review]
   workflow_dispatch:
 
@@ -36,6 +36,7 @@ jobs:
             'extension/content-script.js',
             'extension/live-qol.js',
             'extension/autoplay.js',
+            'extension/autoplay-hotfix.js',
             'extension/overlay.js',
             'extension/options.js',
             'tools/repository-security-audit.js'
