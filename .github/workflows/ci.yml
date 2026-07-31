@@ -1,10 +1,10 @@
-name: Friberg Assistant CI
+name: Friberg Race Lite CI
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main, fix/live-qol-096-clean]
+    branches: [feature/autoplay-097]
     types: [ready_for_review]
   workflow_dispatch:
 
@@ -30,15 +30,10 @@ jobs:
         run: |
           $files = @(
             'solver.js',
-            'automation-core.js',
             'live-dom-adapter.js',
-            'extension/background.js',
-            'extension/content-script.js',
-            'extension/live-qol.js',
-            'extension/autoplay.js',
-            'extension/autoplay-hotfix.js',
-            'extension/overlay.js',
-            'extension/options.js',
+            'extension/feedback-parser-patch.js',
+            'extension/race-policy.js',
+            'extension/race-controller.js',
             'tools/repository-security-audit.js'
           )
           foreach ($file in $files) {
@@ -46,46 +41,31 @@ jobs:
             node --check $file
           }
 
-      - name: Validate manifests and 646-player pool
+      - name: Validate manifest and 646-player pool
         shell: pwsh
         run: |
-          node -e "const fs=require('fs'); const manifests=['extension/manifest.json','dist/friberg-assistant-personal/manifest.json','dist/friberg-assistant-commercial/manifest.json']; for (const f of manifests) JSON.parse(fs.readFileSync(f,'utf8').replace(/^\uFEFF/,'')); const pool=JSON.parse(fs.readFileSync('data/players.game-646.json','utf8')); if(pool.length!==646) throw new Error('Expected 646 players, got '+pool.length); console.log('PASS: manifests and 646-player pool');"
+          node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('extension/manifest.json','utf8').replace(/^\uFEFF/,'')); const pool=JSON.parse(fs.readFileSync('data/players.game-646.json','utf8')); if(pool.length!==646) throw new Error('Expected 646 players, got '+pool.length); console.log('PASS: race manifest and 646-player pool');"
 
       - name: Run strict solver regression
         run: node tests/run-regression.js
 
-      - name: Run extension contract
-        run: node tests/run-extension-contract.js
-
-      - name: Run live QoL contract
-        run: node tests/run-live-qol-contract.js
-
-      - name: Run autoplay contract
-        run: node tests/run-autoplay-contract.js
-
-      - name: Run automation core contract
-        run: node tests/run-automation-core.js
-
-      - name: Run ScriptCat contract
-        run: node tests/run-scriptcat-contract.js
-
-      - name: Run commercial offline-license contract
-        run: node tests/run-commercial-contract.js
+      - name: Run race-lite contract and 646-answer simulation
+        run: node tests/run-race-lite-contract.js
 
       - name: Repository security audit
         run: node tools/repository-security-audit.js
 
-      - name: Build personal extension
+      - name: Build race extension
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File .\tools\package-edge-extension.ps1
 
       - name: Validate delivery ZIP
         run: node tests/run-delivery-contract.js
 
-      - name: Upload personal extension artifact
+      - name: Upload race extension artifact
         uses: actions/upload-artifact@v4
         with:
-          name: friberg-assistant-personal-${{ github.sha }}
+          name: friberg-race-lite-${{ github.sha }}
           path: |
             dist/friberg-assistant-extension/
             dist/friberg-assistant-extension.zip
