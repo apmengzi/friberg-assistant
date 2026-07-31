@@ -12,7 +12,7 @@ const background = read('extension/background.js');
 const qolCss = read('extension/live-qol.css');
 const pool = JSON.parse(read('data/players.game-646.json'));
 
-assert.strictEqual(manifest.version, '0.9.9');
+assert.strictEqual(manifest.version, '0.9.10');
 assert.ok(manifest.permissions.includes('notifications'));
 assert.ok(manifest.permissions.includes('tabs'));
 assert.ok(scripts.includes('live-qol.js'));
@@ -29,7 +29,7 @@ assert.ok(qol.includes("fillSpecificPlayer('refrezh'"));
 assert.ok(qol.includes('baseFill.disabled'));
 assert.ok(qol.includes('callbacks.onFillNext?.()'));
 assert.ok(qol.includes('callbacks.onSubmitGuess?.()'));
-assert.ok(qol.includes("data-fa-qol-action=\"fill-submit\""));
+assert.ok(qol.includes('data-fa-qol-action="fill-submit"'));
 assert.ok(qol.includes('测试匹配通知'));
 assert.ok(qol.includes('readyButtons.length !== 1'));
 assert.ok(qol.includes('AUTO_READY_WINDOW_MS'));
