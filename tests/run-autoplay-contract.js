@@ -5,60 +5,49 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const manifest = JSON.parse(read('extension/manifest.json'));
-const autoplay = read('extension/autoplay.js');
-const hotfix = read('extension/autoplay-hotfix.js');
-const instantNext = read('extension/instant-next.js');
+const autoplay = read('extension/direct-autoplay.js');
 const css = read('extension/autoplay.css');
 const scripts = manifest.content_scripts[0].js;
 const styles = manifest.content_scripts[0].css;
 const matches = manifest.content_scripts[0].matches;
 
-assert.strictEqual(manifest.version, '0.9.9');
+assert.strictEqual(manifest.version, '0.9.10');
 assert.ok(matches.includes('https://shnlfriberg.online/multi*'));
 assert.ok(matches.includes('https://shnlfriberg.online/single*'));
 assert.ok(manifest.host_permissions.includes('https://shnlfriberg.online/single*'));
 assert.ok(styles.includes('autoplay.css'));
-assert.ok(scripts.includes('autoplay.js'));
-assert.ok(scripts.includes('autoplay-hotfix.js'));
-assert.ok(scripts.includes('instant-next.js'));
-assert.ok(scripts.indexOf('content-script.js') < scripts.indexOf('autoplay.js'));
-assert.ok(scripts.indexOf('autoplay.js') < scripts.indexOf('autoplay-hotfix.js'));
-assert.ok(scripts.indexOf('autoplay-hotfix.js') < scripts.indexOf('instant-next.js'));
+assert.ok(scripts.includes('direct-autoplay.js'));
+assert.ok(!scripts.includes('autoplay.js'));
+assert.ok(!scripts.includes('autoplay-hotfix.js'));
+assert.ok(!scripts.includes('instant-next.js'));
+assert.ok(scripts.indexOf('content-script.js') < scripts.indexOf('direct-autoplay.js'));
 
-assert.ok(autoplay.includes('state.mode = mode'));
-assert.ok(autoplay.includes("mode === 'single' ? SINGLE_WINDOW_MS : MULTI_WINDOW_MS"));
-assert.ok(autoplay.includes('ensureAutoReadyArmed'));
+assert.ok(autoplay.includes("const FIRST_GUESS = 'refrezh'"));
+assert.ok(autoplay.includes('FALLBACK_MS = 16'));
+assert.ok(autoplay.includes('MutationObserver'));
+assert.ok(autoplay.includes('requestAnimationFrame'));
+assert.ok(autoplay.includes('state.mode = kind'));
+assert.ok(autoplay.includes("kind === 'single' ? SINGLE_WINDOW_MS : MULTI_WINDOW_MS"));
+assert.ok(autoplay.includes('ensureAutoReady'));
 assert.ok(autoplay.includes('本次匹配托管：开'));
 assert.ok(autoplay.includes('单人本局全自动：开'));
 assert.ok(autoplay.includes("location.pathname.startsWith('/single')"));
 assert.ok(autoplay.includes("document.querySelectorAll('.guess-progress')"));
-assert.ok(autoplay.includes('bindSingleBoardIfUnique'));
-assert.ok(autoplay.includes('candidates.length === 1'));
-assert.ok(autoplay.includes("qolButton('fill-submit')"));
-assert.ok(autoplay.includes('fastRefrezh'));
-assert.ok(autoplay.includes('event.stopImmediatePropagation()'));
-assert.ok(autoplay.includes('timeoutMs: 900'));
-assert.ok(autoplay.includes("baseButton('submit')"));
-assert.ok(autoplay.includes('ACTION_TIMEOUT_MS'));
-assert.ok(autoplay.includes("disarm('插件报告了无法安全继续的页面状态。"));
-
-assert.ok(hotfix.includes('Adapter.submitSelectedGuess'));
-assert.ok(hotfix.includes('Adapter.fillAndSelectUniqueOption'));
-assert.ok(hotfix.includes('FIRST_SELECT_TIMEOUT_MS = 500'));
-assert.ok(hotfix.includes('MutationObserver'));
-assert.ok(hotfix.includes('requestAnimationFrame(tick)'));
-assert.ok(hotfix.includes('performance.now()'));
-assert.ok(hotfix.includes("const SINGLE_NORMAL_ROUTE = '/single/normal'"));
-assert.ok(hotfix.includes('单人完整版循环：开'));
-assert.ok(hotfix.includes('uniqueAgainButton'));
-assert.ok(hotfix.includes('ensureAutoplayArmed'));
-assert.ok(hotfix.includes('loopCompleted'));
-assert.ok(hotfix.includes('已离开“单人 · 完整版”实际对局页面'));
-
-assert.ok(instantNext.includes('MutationObserver'));
-assert.ok(instantNext.includes('requestAnimationFrame(tick)'));
-assert.ok(instantNext.includes('data-fa-qol-action="fill-submit"'));
-assert.ok(instantNext.includes('faInstantLock'));
+assert.ok(autoplay.includes('bindSingleBoard'));
+assert.ok(autoplay.includes('Adapter.fillAndSelectUniqueOption'));
+assert.ok(autoplay.includes('directSubmitButton'));
+assert.ok(autoplay.includes('button.disabled'));
+assert.ok(autoplay.includes('count === 0) return FIRST_GUESS'));
+assert.ok(autoplay.includes('recommendationAtProgressStart'));
+assert.ok(autoplay.includes('guessedNicknames'));
+assert.ok(autoplay.includes('phase: \'filling\''));
+assert.ok(autoplay.includes("action.phase = 'selected'"));
+assert.ok(autoplay.includes("action.phase = 'submitted'"));
+assert.ok(autoplay.includes('单人完整版循环：开'));
+assert.ok(autoplay.includes('AGAIN_RE'));
+assert.ok(autoplay.includes('loopCompleted'));
+assert.ok(autoplay.includes('已提前完成输入和下拉选择'));
+assert.ok(autoplay.includes('冷却结束的第一刻直接提交'));
 
 assert.ok(css.includes('.fa-autoplay'));
 assert.ok(css.includes('grid-column: 1 / -1'));
@@ -70,7 +59,9 @@ console.log(JSON.stringify({
   routes: ['multi', 'single'],
   modes: ['current-match trustee', 'current single game autoplay', 'continuous normal single loop'],
   raceStrategy: true,
-  eventDrivenFirstGuess: true,
-  eventDrivenNextGuess: true,
+  controllerCount: 1,
+  fixedOpening: 'refrezh',
+  fillBeforeCooldownEnds: true,
+  eventDrivenSubmit: true,
   status: 'passed',
 }));
