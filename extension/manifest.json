@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Friberg Assistant — Live DOM Assist",
-  "version": "0.9.7",
-  "description": "弗一把可见反馈助手：多人本次匹配托管、单人本局全自动、严格求解与受控提交。",
+  "version": "0.9.8",
+  "description": "弗一把可见反馈助手：多人本次匹配托管、单人本局全自动、完整版连续循环、严格求解与受控提交。",
   "permissions": [
     "storage",
     "scripting",
@@ -40,7 +40,8 @@
         "overlay.js",
         "live-qol.js",
         "content-script.js",
-        "autoplay.js"
+        "autoplay.js",
+        "autoplay-hotfix.js"
       ],
       "run_at": "document_idle"
     }
