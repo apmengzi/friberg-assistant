@@ -37,6 +37,7 @@ jobs:
             'extension/live-qol.js',
             'extension/autoplay.js',
             'extension/autoplay-hotfix.js',
+            'extension/direct-autoplay.js',
             'extension/speed-strategy.js',
             'extension/speed-telemetry.js',
             'extension/overlay.js',
