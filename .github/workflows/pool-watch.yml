@@ -1,0 +1,112 @@
+name: Official player-pool watch
+
+on:
+  schedule:
+    - cron: "15 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Compare official pool
+        id: pool
+        run: node tools/check-official-pool.js
+
+      - name: Upload comparison report
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-pool-check-${{ github.run_id }}
+          path: outputs/official-pool-check.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Maintain one drift issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('outputs/official-pool-check.json', 'utf8'));
+            const title = '[Pool Watch] Official player pool changed';
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = openIssues.find(issue => issue.title === title && !issue.pull_request);
+
+            if (report.status === 'changed') {
+              const body = [
+                'The official `shnlfriberg/csgo-major-db` player pool differs from the bundled pool.',
+                '',
+                `- Checked: ${report.checkedAt}`,
+                `- Local count: ${report.localCount}`,
+                `- Remote count: ${report.remoteCount}`,
+                `- Added: ${(report.added || []).join(', ') || 'none'}`,
+                `- Removed: ${(report.removed || []).join(', ') || 'none'}`,
+                `- Changed records: ${(report.changedNicknames || []).join(', ') || 'none'}`,
+                `- Local hash: \`${report.localHash}\``,
+                `- Remote hash: \`${report.remoteHash}\``,
+                '',
+                'Do not auto-replace the pool. Review role/status/team changes, update the bundled data, then rerun the strict regression and opening-policy benchmark.',
+                '',
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n');
+              if (existing) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body,
+                });
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: `Pool drift still exists as of ${report.checkedAt}.`,
+                });
+              } else {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body,
+                  labels: ['data'],
+                });
+              }
+              return;
+            }
+
+            if (report.status === 'current' && existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `The bundled pool matches the official source again as of ${report.checkedAt}; closing this watcher issue.`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                state: 'closed',
+              });
+            }
+
+            if (report.status === 'unavailable') {
+              core.notice(`Official pool could not be checked: ${report.error || 'unknown error'}`);
+            }
