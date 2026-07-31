@@ -1,0 +1,54 @@
+﻿{
+    "manifest_version":  3,
+    "name":  "Friberg Assistant Pro - Offline Licensed Edition",
+    "version":  "0.9.2",
+    "description":  "Paid Beta with offline Ed25519 device licensing, strict solving, visible feedback, fill, and user-triggered submit.",
+    "permissions":  [
+                        "storage"
+                    ],
+    "host_permissions":  [
+                             "https://shnlfriberg.online/multi*"
+                         ],
+    "content_scripts":  [
+                            {
+                                "matches":  [
+                                                "https://shnlfriberg.online/multi*"
+                                            ],
+                                "css":  [
+                                            "overlay.css"
+                                        ],
+                                "js":  [
+                                           "license-config.js",
+                                           "license-core.js",
+                                           "solver.js",
+                                           "automation-core.js",
+                                           "live-dom-adapter.js",
+                                           "overlay.js",
+                                           "license-client.js",
+                                           "content-script.js"
+                                       ],
+                                "run_at":  "document_idle"
+                            }
+                        ],
+    "web_accessible_resources":  [
+                                     {
+                                         "resources":  [
+                                                           "page-bridge.js",
+                                                           "solver-worker.js",
+                                                           "solver.js",
+                                                           "automation-core.js",
+                                                           "live-dom-adapter.js",
+                                                           "data/game-players-646.json"
+                                                       ],
+                                         "matches":  [
+                                                         "https://shnlfriberg.online/multi*"
+                                                     ]
+                                     }
+                                 ],
+    "background":  {
+                       "service_worker":  "background.js"
+                   },
+    "action":  {
+                   "default_title":  "Friberg Assistant"
+               }
+}

@@ -1,0 +1,12 @@
+﻿Friberg Assistant Pro 0.9.2 Paid Beta
+
+This package contains the 646-player dataset from:
+https://github.com/shnlfriberg/csgo-major-db
+The dataset repository is licensed under the MIT License.
+
+The public game repository is:
+https://github.com/shnlfriberg/csgofriberg
+It is licensed under AGPL-3.0. This assistant is distributed with its human-readable
+extension source files; no warranty is provided.
+
+The embedded Ed25519 public key verifies licenses only. It cannot generate licenses.

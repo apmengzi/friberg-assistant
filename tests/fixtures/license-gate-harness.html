@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Friberg license gate harness</title>
+</head>
+<body>
+  <main id="fixture">License fixture</main>
+  <script>
+    globalThis.FribergLicenseConfig = Object.freeze({
+      product: 'friberg-assistant',
+      edition: 'commercial',
+      clientVersion: '0.9.2',
+      releaseLabel: '0.9.2 Paid Beta',
+      datasetVersion: '2026-07-30',
+      adapterVersion: '3',
+      verificationIntervalMs: 30000,
+    });
+    globalThis.__licenseMessages = [];
+    globalThis.chrome = {
+      runtime: {
+        lastError: null,
+        sendMessage(message, callback) {
+          globalThis.__licenseMessages.push({ ...message });
+          if (message.action === 'status' || message.action === 'device') {
+            callback({
+              active: false,
+              code: 'NO_LICENSE',
+              message: '请输入测试许可证。',
+              device: { deviceCode: 'FRB-AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AABB' },
+            });
+            return;
+          }
+          if (message.action === 'activate' && message.licenseText === 'FRIBERG1.TEST.VALID') {
+            callback({
+              active: true,
+              license: {
+                id: 'license-fixture',
+                expiresAt: new Date(Date.now() + 86400000).toISOString(),
+                deviceCode: 'FRB-AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AABB',
+              },
+            });
+            return;
+          }
+          callback({ active: false, code: 'INVALID_LICENSE', message: '卡密无效。' });
+        },
+      },
+    };
+  </script>
+  <script src="../../commercial/extension-overlay/license-client.js"></script>
+  <script>
+    FribergLicenseClient.requireActiveLicense().then(result => {
+      document.body.dataset.licenseActive = String(Boolean(result.active));
+    });
+  </script>
+</body>
+</html>

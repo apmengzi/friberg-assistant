@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN" data-friberg-live-fixture="true">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/extension/overlay.css">
+  <title>Live Assist Extension Harness</title>
+</head>
+<body>
+  <main id="fixture-main" class="page-scroll">
+    <h1>多人联机</h1>
+    <p id="fixture-round">第 1 局 · 先胜 2 局</p>
+    <p id="fixture-state">等待匹配</p>
+    <p id="fixture-cooldown"></p>
+    <section class="input-bar" aria-label="猜测输入区">
+      <input id="guess-input" class="input" placeholder="输入选手昵称..." autocomplete="off">
+      <button id="submit-guess" class="btn" type="button">提交猜测</button>
+      <ul id="player-options" role="listbox"></ul>
+    </section>
+    <section aria-label="本地回放控制">
+      <button id="fixture-route" type="button">切换测试路由</button>
+      <button id="fixture-standard-board" type="button">加载标准棋盘</button>
+      <button id="fixture-second-row" type="button">追加第二反馈行</button>
+      <button id="fixture-unknown-board" type="button">加载未知反馈棋盘</button>
+      <button id="fixture-repair-feedback" type="button">修复未知反馈</button>
+      <button id="fixture-zero-options" type="button">验证 Zero PlayerId</button>
+      <output id="fixture-result"></output>
+    </section>
+    <div id="fixture-stage"></div>
+  </main>
+  <script>
+    window.__fixtureChromeStorage = {};
+    window.chrome = {
+      runtime: { getURL: path => `${location.origin}/extension/${path}` },
+      storage: { sync: {
+        get: async defaults => ({ ...(defaults || {}), ...window.__fixtureChromeStorage }),
+        set: async values => { Object.assign(window.__fixtureChromeStorage, values || {}); },
+      } },
+    };
+    window.__fixtureSubmitClicks = 0;
+    window.__fixtureOptionClicks = [];
+    window.__fixtureDownloads = [];
+    document.addEventListener('click', event => {
+      const option = event.target.closest?.('#player-options [role="option"]');
+      if (option) {
+        window.__fixtureOptionClicks.push(option.dataset.playerId || option.textContent.trim());
+        window.__fixtureSelected = option.dataset.playerId || option.textContent.trim();
+      }
+      const download = event.target.closest?.('a[download^="friberg-diagnostic-"]');
+      if (download) {
+        window.__fixtureDownloads.push({ name: download.download, href: download.href });
+        event.preventDefault();
+      }
+    }, true);
+    document.getElementById('submit-guess').addEventListener('click', () => { window.__fixtureSubmitClicks += 1; });
+    document.getElementById('guess-input').addEventListener('input', event => {
+      const nickname = event.target.value.trim();
+      const options = document.getElementById('player-options');
+      if (window.__fixtureDisableDropdown) {
+        options.innerHTML = '';
+        return;
+      }
+      options.innerHTML = nickname ? `<li role="option" data-player-id="fixture-${nickname}">${nickname} Fixture Team</li>` : '';
+      options.querySelector('li')?.addEventListener('click', () => { window.__fixtureSelected = nickname; });
+    });
+    window.fixtureBoard = ({ unknown = false, second = false } = {}) => {
+      const arrow = direction => `<span class="dir"><svg width="13" height="13" viewBox="0 0 24 24" class="lucide lucide-arrow-${direction}" aria-hidden="true"><path d="${direction === 'up' ? 'm5 12 7-7 7 7' : 'M12 5v14'}"></path></svg></span>`;
+      const row = second
+        ? `<tr class="row-latest"><td class="name">refrezh</td><td class="wrong">未签约/已下放</td><td class="close">丹麦</td><td class="close">28${arrow('up')}</td><td class="correct">步枪手</td><td class="correct">0</td><td class="wrong">3${arrow('down')}</td><td class="correct">现役</td></tr>`
+        : `<tr><td class="name">frozen</td><td class="${unknown ? 'mystery' : 'wrong'}">FaZe</td><td class="close">斯洛伐克</td><td class="wrong">24${arrow('up')}</td><td class="correct">步枪手</td><td class="correct">0</td><td class="wrong">8${arrow('down')}</td><td class="correct">现役</td></tr>`;
+      document.getElementById('fixture-state').textContent = '我的猜测';
+      document.getElementById('fixture-stage').innerHTML = `
+        <div class="boards">
+          <section class="card player-board player-board-self"><h2>我的猜测 <span>1/8</span></h2><table class="game-table"><thead><tr><th>昵称</th><th>队伍</th><th>国家或地区</th><th>年龄</th><th>位置</th><th>Major 冠军数</th><th>Major 次数</th><th>状态</th></tr></thead><tbody>${row}</tbody></table></section>
+          <section class="card player-board player-board-opponent"><h2>访客#TEST 1/8</h2><table class="game-table"><thead><tr><th>昵称</th><th>队伍</th><th>国家或地区</th><th>年龄</th><th>位置</th><th>Major 冠军数</th><th>Major 次数</th><th>状态</th></tr></thead><tbody><tr><td class="name masked-cell"></td><td class="wrong masked-cell"></td><td class="close masked-cell"></td><td class="wrong masked-cell">${arrow('up')}</td><td class="correct masked-cell"></td><td class="correct masked-cell"></td><td class="wrong masked-cell">${arrow('down')}</td><td class="correct masked-cell"></td></tr></tbody></table></section>
+        </div>`;
+    };
+    window.fixtureAddSecondRow = () => {
+      const body = document.querySelector('.player-board-self .game-table tbody');
+      if (!body) return;
+      body.insertAdjacentHTML('beforeend', '<tr class="row-latest"><td class="name">refrezh</td><td class="wrong">未签约/已下放</td><td class="close">丹麦</td><td class="close">28<span class="dir"><svg width="13" height="13" class="lucide lucide-arrow-up" aria-hidden="true"><path d="m5 12 7-7 7 7"></path></svg></span></td><td class="correct">步枪手</td><td class="correct">0</td><td class="wrong">3<span class="dir"><svg width="13" height="13" class="lucide lucide-arrow-down" aria-hidden="true"><path d="M12 5v14"></path></svg></span></td><td class="correct">现役</td></tr>');
+      document.querySelector('.player-board-self h2 span').textContent = '2/8';
+    };
+    window.fixtureZeroOptions = () => {
+      document.getElementById('player-options').innerHTML = '<li role="option" data-player-id="zero-cn">Zero 中国 Fixture</li><li role="option" data-player-id="zero-sk">Zero 斯洛伐克 Fixture</li>';
+    };
+    window.fixtureRepairFeedback = () => {
+      document.querySelector('.player-board-self td.mystery')?.classList.replace('mystery', 'wrong');
+    };
+    document.getElementById('fixture-route').addEventListener('click', () => {
+      history.pushState({}, '', `${location.pathname}?fixtureRoute=changed`);
+      document.getElementById('fixture-result').textContent = location.pathname + location.search;
+    });
+    document.getElementById('fixture-standard-board').addEventListener('click', () => window.fixtureBoard());
+    document.getElementById('fixture-second-row').addEventListener('click', () => window.fixtureAddSecondRow());
+    document.getElementById('fixture-unknown-board').addEventListener('click', () => window.fixtureBoard({ unknown: true }));
+    document.getElementById('fixture-repair-feedback').addEventListener('click', () => window.fixtureRepairFeedback());
+    document.getElementById('fixture-zero-options').addEventListener('click', () => {
+      window.fixtureZeroOptions();
+      const players = [
+        { id: 'zero-cn', nick: 'Zero', country: '中国', team: 'CN Fixture' },
+        { id: 'zero-sk', nick: 'Zero', country: '斯洛伐克', team: 'SK Fixture' },
+      ];
+      const result = window.FribergLiveDomAdapter.uniqueOptionForPlayer({ player: players[1], players });
+      document.getElementById('fixture-result').textContent = `${result.status}:${result.element?.dataset.playerId || 'none'}`;
+    });
+  </script>
+  <script src="/extension/solver.js"></script>
+  <script src="/extension/automation-core.js"></script>
+  <script src="/extension/live-dom-adapter.js"></script>
+  <script src="/extension/overlay.js"></script>
+  <script src="/extension/content-script.js"></script>
+</body>
+</html>

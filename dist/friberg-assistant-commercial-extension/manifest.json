@@ -1,0 +1,65 @@
+﻿{
+    "manifest_version":  3,
+    "name":  "Friberg Assistant Pro - Licensed Edition",
+    "version":  "0.9.1",
+    "description":  "Licensed edition with server-side expiry, single-device binding, revocation, and secure sessions.",
+    "permissions":  [
+                        "storage",
+                        "scripting"
+                    ],
+    "optional_host_permissions":  [
+                                      "http://*/*",
+                                      "https://*/*"
+                                  ],
+    "host_permissions":  [
+                             "https://shnlfriberg.online/multi*",
+                             "http://127.0.0.1/*",
+                             "http://localhost/*"
+                         ],
+    "content_scripts":  [
+                            {
+                                "matches":  [
+                                                "https://shnlfriberg.online/multi*",
+                                                "http://127.0.0.1/*",
+                                                "http://localhost/*"
+                                            ],
+                                "css":  [
+                                            "overlay.css"
+                                        ],
+                                "js":  [
+                                           "license-config.js",
+                                           "solver.js",
+                                           "automation-core.js",
+                                           "live-dom-adapter.js",
+                                           "overlay.js",
+                                           "license-client.js",
+                                           "content-script.js"
+                                       ],
+                                "run_at":  "document_idle"
+                            }
+                        ],
+    "web_accessible_resources":  [
+                                     {
+                                         "resources":  [
+                                                           "page-bridge.js",
+                                                           "solver-worker.js",
+                                                           "solver.js",
+                                                           "automation-core.js",
+                                                           "live-dom-adapter.js",
+                                                           "data/game-players-646.json"
+                                                       ],
+                                         "matches":  [
+                                                         "\u003call_urls\u003e",
+                                                         "http://127.0.0.1/*",
+                                                         "http://localhost/*"
+                                                     ]
+                                     }
+                                 ],
+    "background":  {
+                       "service_worker":  "background.js"
+                   },
+    "options_page":  "options.html",
+    "action":  {
+                   "default_title":  "Friberg Assistant"
+               }
+}

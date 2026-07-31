@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Friberg Assistant 设置</title><link rel="stylesheet" href="overlay.css"></head>
+<body style="max-width:760px;margin:32px auto;padding:0 20px;background:#071d25;color:#eaf8f4;font:15px/1.5 system-ui,sans-serif">
+  <h1>Friberg Assistant 设置</h1>
+  <p>公开站点始终只有推荐模式。这里仅可加入你拥有或所有参与者明确同意的私人测试来源。</p>
+  <p>请填完整精确 origin（例如 <code>https://test.example:8443</code>）。Chrome 的授权提示按主机覆盖全部端口，但扩展仍会逐页核对精确 origin 和授权 data 合约。</p>
+  <label for="privateOrigins">私人测试来源（每行一个完整 origin）</label>
+  <textarea id="privateOrigins" rows="8" style="width:100%;margin:8px 0;padding:10px;background:#0d2a34;border:1px solid #1e4852;color:inherit"></textarea>
+  <button id="save" type="button">保存白名单</button><output id="saved" style="margin-left:10px"></output>
+  <script src="options.js"></script>
+</body>
+</html>

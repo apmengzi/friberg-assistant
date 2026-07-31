@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Live Assist ScriptCat Harness</title></head>
+<body>
+  <main class="page-scroll"><h1>多人联机</h1><p id="fixture-round">第 1 局 · 先胜 2 局</p><p id="fixture-state">等待匹配</p><p id="fixture-cooldown"></p><section class="input-bar"><input id="guess-input" placeholder="输入选手昵称..."><button id="submit-guess">提交猜测</button><ul id="player-options" role="listbox"></ul></section><section aria-label="本地回放控制"><button id="fixture-route" type="button">切换测试路由</button><button id="fixture-standard-board" type="button">加载标准棋盘</button><button id="fixture-second-row" type="button">追加第二反馈行</button><button id="fixture-unknown-board" type="button">加载未知反馈棋盘</button><button id="fixture-repair-feedback" type="button">修复未知反馈</button></section><div id="fixture-stage"></div></main>
+  <script>
+    window.__fixtureGmStorage = {};
+    window.GM_getValue = async (key, fallback) => key in window.__fixtureGmStorage ? window.__fixtureGmStorage[key] : fallback;
+    window.GM_setValue = async (key, value) => { window.__fixtureGmStorage[key] = value; };
+    window.__fixtureSubmitClicks = 0;
+    window.__fixtureOptionClicks = [];
+    document.getElementById('submit-guess').addEventListener('click', () => { window.__fixtureSubmitClicks += 1; });
+    document.getElementById('guess-input').addEventListener('input', event => {
+      const nickname = event.target.value.trim();
+      if (window.__fixtureDisableDropdown) {
+        document.getElementById('player-options').innerHTML = '';
+        return;
+      }
+      document.getElementById('player-options').innerHTML = nickname ? `<li role="option" data-player-id="fixture-${nickname}">${nickname} Fixture Team</li>` : '';
+      document.querySelector('#player-options li')?.addEventListener('click', () => { window.__fixtureSelected = nickname; });
+    });
+    document.addEventListener('click', event => {
+      const option = event.target.closest?.('#player-options [role="option"]');
+      if (option) {
+        window.__fixtureOptionClicks.push(option.dataset.playerId || option.textContent.trim());
+        window.__fixtureSelected = option.dataset.playerId || option.textContent.trim();
+      }
+    }, true);
+    window.fixtureBoard = ({ unknown = false } = {}) => {
+      const arrow = direction => `<span class="dir"><svg width="13" height="13" class="lucide lucide-arrow-${direction}" aria-hidden="true"><path d="${direction === 'up' ? 'm5 12 7-7 7 7' : 'M12 5v14'}"></path></svg></span>`;
+      document.getElementById('fixture-state').textContent = '我的猜测';
+      document.getElementById('fixture-stage').innerHTML = `<div class="boards"><section class="card player-board player-board-self"><h2>我的猜测 <span>1/8</span></h2><table class="game-table"><thead><tr><th>昵称</th><th>队伍</th><th>国家或地区</th><th>年龄</th><th>位置</th><th>Major 冠军数</th><th>Major 次数</th><th>状态</th></tr></thead><tbody><tr><td>frozen</td><td class="${unknown ? 'mystery' : 'wrong'}">FaZe</td><td class="close">斯洛伐克</td><td class="wrong">24${arrow('up')}</td><td class="correct">步枪手</td><td class="correct">0</td><td class="wrong">8${arrow('down')}</td><td class="correct">现役</td></tr></tbody></table></section><section class="card player-board player-board-opponent"><h2>访客#TEST 1/8</h2><table class="game-table"><thead><tr><th>昵称</th><th>队伍</th><th>国家或地区</th><th>年龄</th><th>位置</th><th>Major 冠军数</th><th>Major 次数</th><th>状态</th></tr></thead><tbody><tr><td class="masked-cell"></td><td class="wrong masked-cell"></td><td class="close masked-cell"></td><td class="wrong masked-cell">${arrow('up')}</td><td class="correct masked-cell"></td><td class="correct masked-cell"></td><td class="wrong masked-cell">${arrow('down')}</td><td class="correct masked-cell"></td></tr></tbody></table></section></div>`;
+    };
+    window.fixtureAddSecondRow = () => {
+      document.querySelector('.player-board-self .game-table tbody')?.insertAdjacentHTML('beforeend', '<tr class="row-latest"><td>refrezh</td><td class="wrong">未签约/已下放</td><td class="close">丹麦</td><td class="close">28<span class="dir"><svg width="13" height="13" class="lucide lucide-arrow-up" aria-hidden="true"><path d="m5 12 7-7 7 7"></path></svg></span></td><td class="correct">步枪手</td><td class="correct">0</td><td class="wrong">3<span class="dir"><svg width="13" height="13" class="lucide lucide-arrow-down" aria-hidden="true"><path d="M12 5v14"></path></svg></span></td><td class="correct">现役</td></tr>');
+      document.querySelector('.player-board-self h2 span').textContent = '2/8';
+    };
+    document.getElementById('fixture-route').addEventListener('click', () => history.pushState({}, '', `${location.pathname}?fixtureRoute=changed`));
+    document.getElementById('fixture-standard-board').addEventListener('click', () => window.fixtureBoard());
+    document.getElementById('fixture-second-row').addEventListener('click', () => window.fixtureAddSecondRow());
+    document.getElementById('fixture-unknown-board').addEventListener('click', () => window.fixtureBoard({ unknown: true }));
+    document.getElementById('fixture-repair-feedback').addEventListener('click', () => {
+      document.querySelector('.player-board-self td.mystery')?.classList.replace('mystery', 'wrong');
+    });
+  </script>
+  <script src="/dist/friberg-assistant.user.js"></script>
+</body>
+</html>

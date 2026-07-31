@@ -1,0 +1,11 @@
+- generic [ref=e3]:
+  - link "跳转到主要内容" [ref=e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e5]:
+    - generic [ref=e6]: // 多人房间
+    - generic [ref=e10]:
+      - button "浅色" [pressed] [ref=e11] [cursor=pointer]
+      - link "主菜单" [ref=e19] [cursor=pointer]:
+        - /url: /
+  - main [ref=e24]:
+    - paragraph [ref=e27]: 正在获取房间状态...

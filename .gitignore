@@ -1,0 +1,13 @@
+﻿.env
+.env.*
+*.log
+*.zip
+node_modules/
+
+seller-secrets/
+license-records/
+
+**/private-license-key.pem
+**/private-*.pem
+**/*admin*token*
+**/*signing*secret*

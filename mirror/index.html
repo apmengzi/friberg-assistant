@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="弗一把授权本地自动化测试镜像">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b1518'/%3E%3Cpath d='M4 3h8v2H6v2h5v2H6v4H4z' fill='%23e4ff48'/%3E%3C/svg%3E">
+  <title>Friberg Lab / 授权自动化镜像</title>
+  <link rel="stylesheet" href="mirror.css">
+</head>
+<body>
+  <main class="lab-shell" id="fribergMirror" data-friberg-app="mirror" data-friberg-automation="authorized" data-round-status="idle">
+    <header class="lab-header">
+      <div>
+        <p class="eyebrow">FRIBERG LAB / LOCAL ONLY</p>
+        <h1>授权自动化测试镜像</h1>
+      </div>
+      <span class="scope-badge">127.0.0.1 · 可自动提交</span>
+    </header>
+
+    <section class="control-deck" aria-label="本地测试控制">
+      <label class="control-field">测试答案
+        <select id="answerSelect" aria-label="测试答案"></select>
+      </label>
+      <button id="newRound" type="button">开始本地新局</button>
+      <label class="consent"><input id="automationConsent" type="checkbox"> 我确认这是授权的本地测试</label>
+      <button id="autoRun" type="button" disabled>启动全自动测试</button>
+      <button id="autoPause" type="button" disabled>暂停</button>
+      <output id="automationStatus" aria-live="polite">等待开始</output>
+    </section>
+
+    <section class="game-frame" aria-label="我的猜测棋盘">
+      <header class="board-header">
+        <div>
+          <p class="eyebrow">SELF BOARD / TEST CONTRACT</p>
+          <h2>我的猜测</h2>
+        </div>
+        <strong id="roundReadout">0 / 8</strong>
+      </header>
+
+      <form id="guessForm" class="guess-form" novalidate>
+        <label for="guessInput">选手昵称</label>
+        <input id="guessInput" data-friberg-guess-input autocomplete="off" placeholder="输入选手昵称…" aria-controls="playerDropdown">
+        <div id="playerDropdown" class="player-dropdown" role="listbox" aria-label="选手搜索结果"></div>
+        <button id="submitGuess" data-friberg-submit type="submit" disabled>提交猜测</button>
+        <p id="guessError" class="error" role="alert"></p>
+      </form>
+
+      <div class="feedback-table" role="table" aria-label="猜测反馈">
+        <div class="feedback-head" role="row">
+          <span>昵称</span><span>队伍</span><span>国家/地区</span><span>年龄</span><span>位置</span><span>Major 冠军</span><span>Major 次数</span><span>状态</span>
+        </div>
+        <div id="selfBoard" data-friberg-board="self" data-friberg-board-version="1" role="rowgroup"></div>
+      </div>
+      <p id="roundResult" class="round-result" aria-live="polite">选择测试答案后开始。</p>
+    </section>
+
+    <section class="contract-notes" aria-label="自动化边界">
+      <div><strong>稳定标识</strong><span>每个下拉选项和反馈行都带有唯一 playerId。</span></div>
+      <div><strong>结构化反馈</strong><span>颜色和箭头来自 data 属性，不使用 RGB 或 OCR。</span></div>
+      <div><strong>状态机</strong><span>仅在本地镜像中允许填写、选择和提交。</span></div>
+    </section>
+  </main>
+
+  <script src="../solver.js"></script>
+  <script src="../automation-core.js"></script>
+  <script src="mirror.js"></script>
+</body>
+</html>
