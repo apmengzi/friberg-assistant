@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main, fix/live-qol-096-clean]
+    branches: [main, fix/live-qol-096-clean, feature/autoplay-097]
     types: [ready_for_review]
   workflow_dispatch:
 
@@ -37,8 +37,12 @@ jobs:
             'extension/live-qol.js',
             'extension/autoplay.js',
             'extension/autoplay-hotfix.js',
+            'extension/speed-strategy.js',
+            'extension/speed-telemetry.js',
             'extension/overlay.js',
             'extension/options.js',
+            'tools/analyze-single-speed-strategy.js',
+            'tools/check-official-pool.js',
             'tools/repository-security-audit.js'
           )
           foreach ($file in $files) {
@@ -63,6 +67,12 @@ jobs:
       - name: Run autoplay contract
         run: node tests/run-autoplay-contract.js
 
+      - name: Run speed strategy contract
+        run: node tests/run-speed-strategy-contract.js
+
+      - name: Benchmark all 646 openings
+        run: node tools/analyze-single-speed-strategy.js
+
       - name: Run automation core contract
         run: node tests/run-automation-core.js
 
@@ -81,6 +91,14 @@ jobs:
 
       - name: Validate delivery ZIP
         run: node tests/run-delivery-contract.js
+
+      - name: Upload strategy benchmark
+        uses: actions/upload-artifact@v4
+        with:
+          name: friberg-strategy-benchmark-${{ github.sha }}
+          path: outputs/single-speed-strategy-report.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload personal extension artifact
         uses: actions/upload-artifact@v4
