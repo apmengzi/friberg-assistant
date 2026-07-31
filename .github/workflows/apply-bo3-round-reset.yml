@@ -1,0 +1,50 @@
+name: Apply BO3 round reset fix
+
+on:
+  push:
+    branches: [fix/bo3-round-reset]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/bo3-round-reset
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply deterministic source patch
+        run: node tools/apply-bo3-round-reset-fix.js
+
+      - name: Validate contracts
+        shell: pwsh
+        run: |
+          node --check extension/content-script.js
+          node --check userscript/friberg-assistant-scriptcat.template.js
+          node tests/run-extension-contract.js
+          node tests/run-scriptcat-contract.js
+
+      - name: Commit patched source
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add extension/content-script.js userscript/friberg-assistant-scriptcat.template.js tests/run-extension-contract.js
+          if (git diff --cached --quiet) {
+            Write-Host "No patch changes to commit."
+            exit 0
+          }
+          git commit -m "fix: rebind visible board between BO3 rounds [bo3-applied]"
+          git push origin HEAD:fix/bo3-round-reset
