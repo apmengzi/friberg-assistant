@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Friberg Race Lite",
-  "version": "1.0.0",
-  "description": "弗一把多人纯竞速版：固定 refrezh 首猜、可见反馈精确候选、提前填入并走原网页提交路径。",
+  "version": "1.0.1",
+  "description": "弗一把多人纯竞速版：固定 refrezh 首猜、官方表单直提、可见反馈竞速求解与题库漂移容错。",
   "host_permissions": [
     "https://shnlfriberg.online/multi*"
   ],
@@ -13,8 +13,6 @@
       ],
       "js": [
         "solver.js",
-        "live-dom-adapter.js",
-        "feedback-parser-patch.js",
         "race-policy.js",
         "race-controller.js"
       ],
