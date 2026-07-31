@@ -1,9 +1,9 @@
 # Friberg Assistant 项目状态
 
 最后更新：2026-07-31
-当前基准提交：`bf226cb`（0.9.3 Personal）
+当前基准提交：`e7bf841`（0.9.3 Personal，ChatGPT + GitHub 开发基线已合并）
 默认分支：`main`
-当前开发流程分支：`chore/chat-github-dev-loop`
+当前清理分支：`chore/repository-hygiene`
 
 ## 项目目标
 
@@ -27,11 +27,23 @@
 - `tests/run-regression.js`：题库与规则回归；
 - `tests/run-full-pool-contract-audit.*`：646×646 全量反馈契约审计；
 - `tests/run-automation-simulation.js`：1000 局本地模拟；
-- `dist/friberg-assistant-commercial/`：离线 Ed25519 授权候选版。
+- `dist/friberg-assistant-commercial/`：离线 Ed25519 授权候选版；
+- GitHub Actions：语法、题库、回归、扩展契约、商业契约、安全扫描和个人版打包；
+- `PROJECT_STATE.md` / `AGENTS.md`：跨对话持续交接与开发约束。
+
+## 已确认的真实页面问题
+
+### Issue #4：BO3 跨小局随机首猜未可靠重置
+
+用户实测：第一小局不使用时，第二小局可以使用；第二小局使用后，第三小局不再开放。初步判断是旧棋盘仍留在 DOM 中但已隐藏，插件只检查 `document.contains(activeBoard)`，没有确认它仍是当前可见的自己的棋盘。
+
+### Issue #5：匹配成功通知与受控准备辅助
+
+优先实现浏览器/Windows 桌面通知。自动准备必须默认关闭，只允许用户为当前匹配显式武装，并且只点击一次唯一可确认的准备按钮。完整自动猜测与提交保持独立任务。
 
 ## 当前需要现场验证
 
-1. 真实网页连续多局时的新局重置；
+1. Issue #4 修复后的 BO3 三小局连续重置；
 2. 网页提交 CD 期间的排队与只提交一次；
 3. `/multi` 与 `/multi/room` 的长期 DOM 兼容性；
 4. Edge 之外的 Chrome 兼容性；
@@ -46,7 +58,7 @@
 - `live-dom-adapter.js`
 - `data/players.game-646.json`
 
-`tools/package-personal-extension.ps1` 会把这些文件复制进 `extension/`，再构建到 `dist/`。因此：
+打包脚本会把这些文件复制进 `extension/`，再构建到 `dist/`。因此：
 
 - 不应直接把 `dist/` 当作唯一源码；
 - 修改核心后必须重新运行契约测试与打包；
@@ -72,11 +84,11 @@
 
 ## 当前优先级
 
-1. 建立安全、可回滚的 ChatGPT + GitHub 开发流程；
-2. 清理仓库中的运行时快照和本地配置；
-3. 建立 CI、敏感信息扫描和自动打包；
-4. 为跨局重置与 CD 提交建立回归测试；
-5. 再进行真实网页修复。
+1. 完成 Issue #3 仓库清理；
+2. 修复 Issue #4 BO3 跨小局重置；
+3. 实现 Issue #5 第一阶段匹配成功通知；
+4. 继续验证 CD 排队提交和真实网页 DOM；
+5. 再评估受控自动准备与更高自动化模式。
 
 ## 标准开发循环
 
