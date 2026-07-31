@@ -12,17 +12,15 @@ if (Test-Path -LiteralPath $OutputExtension) {
 New-Item -ItemType Directory -Path $OutputExtension -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $OutputExtension 'data') -Force | Out-Null
 
-# Race Lite deliberately ships only files referenced by its five-script manifest.
+# Race Lite 1.0.1 ships only its three runtime scripts plus the official pool.
 @(
   'manifest.json',
-  'feedback-parser-patch.js',
   'race-policy.js',
   'race-controller.js'
 ) | ForEach-Object {
   Copy-Item -LiteralPath (Join-Path $SourceExtension $_) -Destination (Join-Path $OutputExtension $_) -Force
 }
 Copy-Item -LiteralPath (Join-Path $ProjectRoot 'solver.js') -Destination (Join-Path $OutputExtension 'solver.js') -Force
-Copy-Item -LiteralPath (Join-Path $ProjectRoot 'live-dom-adapter.js') -Destination (Join-Path $OutputExtension 'live-dom-adapter.js') -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot 'data\players.game-646.json') -Destination (Join-Path $OutputExtension 'data\game-players-646.json') -Force
 
 if (-not (Test-Path -LiteralPath (Join-Path $OutputExtension 'manifest.json'))) {
@@ -32,8 +30,6 @@ if (-not (Test-Path -LiteralPath (Join-Path $OutputExtension 'manifest.json'))) 
 $expected = @(
   'manifest.json',
   'solver.js',
-  'live-dom-adapter.js',
-  'feedback-parser-patch.js',
   'race-policy.js',
   'race-controller.js',
   'data\game-players-646.json'
