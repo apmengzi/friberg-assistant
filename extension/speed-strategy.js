@@ -52,47 +52,40 @@
   }
 
   function evaluateCandidateProbe(matrix, answerIndices, probeIndex, priorWeights = null) {
-    const groups = new Map();
-    const weightedGroups = new Map();
+    const wrongGroups = new Map();
+    const weightedWrongGroups = new Map();
     const { weights, total } = normalizedPrior(matrix, answerIndices, priorWeights);
-    const correctSignature = matrix.signatures[probeIndex][probeIndex];
 
     for (const answerIndex of answerIndices) {
+      if (answerIndex === probeIndex) continue;
       const signature = matrix.signatures[probeIndex][answerIndex];
-      groups.set(signature, (groups.get(signature) || 0) + 1);
-      weightedGroups.set(signature, (weightedGroups.get(signature) || 0) + weights.get(answerIndex));
+      wrongGroups.set(signature, (wrongGroups.get(signature) || 0) + 1);
+      weightedWrongGroups.set(signature, (weightedWrongGroups.get(signature) || 0) + weights.get(answerIndex));
     }
 
-    let squares = 0;
-    let worstGroup = 0;
     let wrongSquares = 0;
     let worstWrongGroup = 0;
-    groups.forEach((size, signature) => {
-      squares += size * size;
-      worstGroup = Math.max(worstGroup, size);
-      if (signature !== correctSignature) {
-        wrongSquares += size * size;
-        worstWrongGroup = Math.max(worstWrongGroup, size);
-      }
+    wrongGroups.forEach(size => {
+      wrongSquares += size * size;
+      worstWrongGroup = Math.max(worstWrongGroup, size);
     });
 
-    let weightedWrongMass = 0;
-    weightedGroups.forEach((mass, signature) => {
-      if (signature !== correctSignature) weightedWrongMass += mass;
+    let weightedExpectedWrongRemaining = 0;
+    weightedWrongGroups.forEach((mass, signature) => {
+      weightedExpectedWrongRemaining += mass * wrongGroups.get(signature);
     });
 
     const probeWeight = weights.get(probeIndex) || 0;
     return Object.freeze({
       player: matrix.roster[probeIndex],
       probeIndex,
-      partitions: groups.size,
-      worstGroup,
+      wrongPartitions: wrongGroups.size,
+      decisionOutcomes: 1 + wrongGroups.size,
       worstWrongGroup,
-      expectedRemaining: squares / answerIndices.length,
       expectedWrongRemaining: wrongSquares / answerIndices.length,
-      entropy: entropyOf(Array.from(groups.values()), answerIndices.length),
+      weightedExpectedWrongRemaining: weightedExpectedWrongRemaining / total,
+      wrongEntropy: entropyOf(Array.from(wrongGroups.values()), Math.max(1, answerIndices.length - 1)),
       immediateHitRate: probeWeight / total,
-      weightedWrongMass: weightedWrongMass / total,
       isCandidate: true,
     });
   }
@@ -100,12 +93,12 @@
   function compareRace(left, right) {
     if (!right) return -1;
     if (left.immediateHitRate !== right.immediateHitRate) return right.immediateHitRate - left.immediateHitRate;
-    if (left.expectedWrongRemaining !== right.expectedWrongRemaining) {
-      return left.expectedWrongRemaining - right.expectedWrongRemaining;
+    if (left.weightedExpectedWrongRemaining !== right.weightedExpectedWrongRemaining) {
+      return left.weightedExpectedWrongRemaining - right.weightedExpectedWrongRemaining;
     }
     if (left.worstWrongGroup !== right.worstWrongGroup) return left.worstWrongGroup - right.worstWrongGroup;
-    if (left.partitions !== right.partitions) return right.partitions - left.partitions;
-    if (left.entropy !== right.entropy) return right.entropy - left.entropy;
+    if (left.wrongPartitions !== right.wrongPartitions) return right.wrongPartitions - left.wrongPartitions;
+    if (left.wrongEntropy !== right.wrongEntropy) return right.wrongEntropy - left.wrongEntropy;
     return Solver.normalize(left.player.nick).localeCompare(Solver.normalize(right.player.nick));
   }
 
@@ -162,29 +155,32 @@
       : matrix.indexByKey.get(Solver.playerKey(probe));
     if (probeIndex === undefined) return null;
     const answerIndices = matrix.roster.map((_, index) => index);
-    const groups = new Map();
+    const wrongGroups = new Map();
     for (const answerIndex of answerIndices) {
+      if (answerIndex === probeIndex) continue;
       const signature = matrix.signatures[probeIndex][answerIndex];
-      groups.set(signature, (groups.get(signature) || 0) + 1);
+      wrongGroups.set(signature, (wrongGroups.get(signature) || 0) + 1);
     }
-    let squares = 0;
-    let worstGroup = 0;
-    let singletonBuckets = 0;
-    groups.forEach(size => {
-      squares += size * size;
-      worstGroup = Math.max(worstGroup, size);
-      if (size === 1) singletonBuckets += 1;
+    let wrongSquares = 0;
+    let worstWrongGroup = 0;
+    let singletonWrongBuckets = 0;
+    wrongGroups.forEach(size => {
+      wrongSquares += size * size;
+      worstWrongGroup = Math.max(worstWrongGroup, size);
+      if (size === 1) singletonWrongBuckets += 1;
     });
+    const decisionOutcomes = 1 + wrongGroups.size;
     return Object.freeze({
       player: matrix.roster[probeIndex],
       probeIndex,
-      partitions: groups.size,
-      worstGroup,
-      expectedRemaining: squares / answerIndices.length,
-      entropy: entropyOf(Array.from(groups.values()), answerIndices.length),
-      singletonBuckets,
-      twoGuessHitRateUniform: groups.size / answerIndices.length,
-      guaranteedBySecondRate: singletonBuckets / answerIndices.length,
+      wrongPartitions: wrongGroups.size,
+      decisionOutcomes,
+      worstWrongGroup,
+      expectedWrongRemaining: wrongSquares / answerIndices.length,
+      wrongEntropy: entropyOf(Array.from(wrongGroups.values()), Math.max(1, answerIndices.length - 1)),
+      singletonWrongBuckets,
+      twoGuessHitRateUniform: decisionOutcomes / answerIndices.length,
+      guaranteedBySecondRate: (1 + singletonWrongBuckets) / answerIndices.length,
     });
   }
 
@@ -193,9 +189,9 @@
       .map((_, index) => evaluateOpening(matrix, index))
       .sort((left, right) => (
         right.twoGuessHitRateUniform - left.twoGuessHitRateUniform
-        || left.worstGroup - right.worstGroup
-        || left.expectedRemaining - right.expectedRemaining
-        || right.entropy - left.entropy
+        || left.worstWrongGroup - right.worstWrongGroup
+        || left.expectedWrongRemaining - right.expectedWrongRemaining
+        || right.wrongEntropy - left.wrongEntropy
         || Solver.normalize(left.player.nick).localeCompare(Solver.normalize(right.player.nick))
       ));
   }
