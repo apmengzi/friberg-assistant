@@ -23,6 +23,7 @@
     matchStarted: false,
     hadPlayableSurface: false,
     fastFirstBusy: false,
+    bindingBusy: false,
     playersPromise: null,
     timer: null,
     lastErrorAtArm: '',
@@ -124,6 +125,15 @@
     return overlay()?.querySelector('[data-fa-error]')?.textContent?.trim() || '';
   }
 
+  function assistantHasProcessedFeedback(count) {
+    const host = overlay();
+    const status = host?.querySelector('[data-fa-status]')?.textContent || '';
+    const detail = host?.querySelector('[data-fa-detail]')?.textContent || '';
+    return /已读取自己的新反馈/.test(status)
+      || new RegExp(`已合并\\s*${count}\\s*次可见猜测`).test(detail)
+      || /严格候选归零/.test(detail);
+  }
+
   function hasBoundBoard() {
     const text = overlay()?.querySelector('[data-fa-board]')?.textContent || '';
     return /已绑定|已发现/.test(text);
@@ -137,19 +147,25 @@
 
   async function bindSingleBoardIfUnique() {
     if (routeKind() !== 'single' || hasBoundBoard()) return true;
-    const candidate = uniqueSelectableBoard();
-    if (!candidate) return false;
-    const choose = baseButton('board');
-    if (!choose || choose.disabled) return false;
-    choose.click();
-    await sleep(0);
-    candidate.element.dispatchEvent(new MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-      view: window,
-    }));
-    await sleep(30);
-    return hasBoundBoard();
+    if (state.bindingBusy) return null;
+    state.bindingBusy = true;
+    try {
+      const candidate = uniqueSelectableBoard();
+      if (!candidate) return false;
+      const choose = baseButton('board');
+      if (!choose || choose.disabled) return false;
+      choose.click();
+      await sleep(0);
+      candidate.element.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      }));
+      await sleep(40);
+      return hasBoundBoard();
+    } finally {
+      state.bindingBusy = false;
+    }
   }
 
   function resetActionTracking() {
@@ -158,12 +174,17 @@
   }
 
   function disarm(reason, error = '') {
+    const previousMode = state.mode;
     state.mode = 'off';
     state.armedUntil = 0;
     state.matchStarted = false;
     state.hadPlayableSurface = false;
     state.previousProgress = null;
     resetActionTracking();
+    if (previousMode === 'multi') {
+      const autoReady = qolButton('auto-ready');
+      if (autoReady && !/：关/.test(autoReady.textContent || '')) autoReady.click();
+    }
     updateControl();
     if (reason) setOverlay('托管已停止', reason, error);
   }
@@ -218,8 +239,14 @@
           return;
         }
         const kind = routeKind();
-        if (kind === 'single') arm('single');
-        else if (kind === 'multi') arm('multi');
+        if (kind === 'single') {
+          const input = Adapter.scan(document).inputCandidates?.[0]?.element;
+          if (!input) {
+            setOverlay('请先进入一局单人游戏', '当前是难度选择页或游戏尚未加载，未开启全自动。');
+            return;
+          }
+          arm('single');
+        } else if (kind === 'multi') arm('multi');
         else setOverlay('当前页面不支持托管', '请进入弗一把单人模式或多人模式。');
       });
       actions.append(button);
@@ -352,6 +379,7 @@
 
     if (kind === 'single' && count > 0 && !hasBoundBoard()) {
       const bound = await bindSingleBoardIfUnique();
+      if (bound === null) return;
       if (!bound) {
         disarm('单人棋盘无法唯一确认，已停止，避免读取或操作错误区域。');
         return;
@@ -373,6 +401,7 @@
       return;
     }
 
+    if (!assistantHasProcessedFeedback(count)) return;
     const combined = qolButton('fill-submit');
     const recommendation = currentRecommendation();
     if (!combined || combined.disabled || !recommendation) return;
