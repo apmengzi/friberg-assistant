@@ -30,8 +30,6 @@ jobs:
         run: |
           $files = @(
             'solver.js',
-            'live-dom-adapter.js',
-            'extension/feedback-parser-patch.js',
             'extension/race-policy.js',
             'extension/race-controller.js',
             'tools/repository-security-audit.js'
