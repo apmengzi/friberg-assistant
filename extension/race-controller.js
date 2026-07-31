@@ -10,7 +10,6 @@
   const HUD_ID = 'friberg-race-lite-hud';
   const FALLBACK_MS = 8;
   const RETRY_MS = 8;
-  const FIELD_KEYS = ['team', 'country', 'age', 'role', 'majorWins', 'majorApps', 'status'];
 
   const state = {
     armed: sessionStorage.getItem(STORAGE_KEY) === '1',
@@ -20,7 +19,6 @@
     lastCount: null,
     lastRound: '',
     actionKey: '',
-    desired: '',
     lastAttemptAt: 0,
     awaitingProgressKey: '',
     awaitingProgressAt: 0,
@@ -61,6 +59,13 @@
   function selfBoard() {
     const card = Array.from(document.querySelectorAll('.player-board-self')).find(visible);
     return card?.querySelector('table.game-table') || null;
+  }
+
+  function officialRows(board) {
+    if (!(board instanceof Element)) return [];
+    return Array.from(board.querySelectorAll('tbody > tr'))
+      .filter(visible)
+      .filter(row => row.children.length === 8);
   }
 
   function guessCount(board) {
@@ -120,13 +125,6 @@
     document.documentElement.append(hud);
     state.hud = hud;
     return hud;
-  }
-
-  function officialRows(board) {
-    if (!(board instanceof Element)) return [];
-    return Array.from(board.querySelectorAll('tbody > tr'))
-      .filter(visible)
-      .filter(row => row.children.length === 8);
   }
 
   function levelOf(cell) {
@@ -257,7 +255,6 @@
 
   function resetAction() {
     state.actionKey = '';
-    state.desired = '';
     state.lastAttemptAt = 0;
     state.awaitingProgressKey = '';
     state.awaitingProgressAt = 0;
@@ -322,7 +319,6 @@
       const actionKey = `${round}|${count}|${normalize(nickname)}`;
       if (state.actionKey !== actionKey) {
         state.actionKey = actionKey;
-        state.desired = nickname;
         state.lastAttemptAt = 0;
         state.awaitingProgressKey = '';
         state.awaitingProgressAt = 0;
