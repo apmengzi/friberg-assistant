@@ -12,8 +12,9 @@ const styles = manifest.content_scripts[0].css;
 const matches = manifest.content_scripts[0].matches;
 
 assert.strictEqual(manifest.manifest_version, 3);
+assert.strictEqual(manifest.version, '0.9.8');
 assert.ok(matches.includes('https://shnlfriberg.online/multi*'));
-if (manifest.version === '0.9.7') assert.ok(matches.includes('https://shnlfriberg.online/single*'));
+assert.ok(matches.includes('https://shnlfriberg.online/single*'));
 assert.ok(matches.includes('http://127.0.0.1/*'));
 assert.ok(manifest.permissions.includes('storage'));
 assert.ok(manifest.permissions.includes('scripting'));
@@ -23,12 +24,12 @@ assert.strictEqual(digest('automation-core.js'), digest('extension/automation-co
 assert.strictEqual(digest('live-dom-adapter.js'), digest('extension/live-dom-adapter.js'), 'extension must ship the shared live DOM adapter');
 assert.ok(scripts.includes('live-dom-adapter.js'));
 assert.ok(scripts.includes('feedback-parser-patch.js'));
+assert.ok(scripts.includes('autoplay.js'));
+assert.ok(scripts.includes('autoplay-hotfix.js'));
+assert.ok(styles.includes('autoplay.css'));
 assert.ok(scripts.indexOf('feedback-parser-patch.js') < scripts.indexOf('content-script.js'));
-if (manifest.version === '0.9.7') {
-  assert.ok(scripts.includes('autoplay.js'));
-  assert.ok(styles.includes('autoplay.css'));
-  assert.ok(scripts.indexOf('content-script.js') < scripts.indexOf('autoplay.js'));
-}
+assert.ok(scripts.indexOf('content-script.js') < scripts.indexOf('autoplay.js'));
+assert.ok(scripts.indexOf('autoplay.js') < scripts.indexOf('autoplay-hotfix.js'));
 
 const content = read('extension/content-script.js');
 assert.ok(content.includes('isLiveAssistSurface'));
@@ -76,6 +77,12 @@ assert.ok(adapter.includes("node.getAttribute?.('class')"));
 assert.ok(adapter.includes('feedbackRowFingerprint'));
 assert.ok(!adapter.includes('WebSocket'));
 
+const autoplayHotfix = read('extension/autoplay-hotfix.js');
+assert.ok(autoplayHotfix.includes('Adapter.submitSelectedGuess'));
+assert.ok(autoplayHotfix.includes('data-fa-single-loop-action'));
+assert.ok(autoplayHotfix.includes("'/single/normal'"));
+assert.ok(autoplayHotfix.includes('uniqueAgainButton'));
+
 const parserPatch = read('extension/feedback-parser-patch.js');
 assert.ok(parserPatch.includes('extractNickname'));
 assert.ok(parserPatch.includes('trailingCellTexts'));
@@ -84,7 +91,9 @@ require('./run-feedback-parser-patch.js');
 
 console.log(JSON.stringify({
   suite: 'extension-contract',
+  version: manifest.version,
   files: scripts.length,
   routes: matches.filter(match => match.includes('shnlfriberg.online')),
+  firstGuessSubmitBridge: true,
   status: 'passed',
 }));
