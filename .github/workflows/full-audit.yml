@@ -1,0 +1,39 @@
+name: Full Solver Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-audit:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run 646 x 646 contract audit
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File .\tests\run-full-pool-contract-audit.ps1
+
+      - name: Run 1,000-round simulation
+        run: node tests/run-automation-simulation.js
+
+      - name: Upload audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-audit-${{ github.sha }}
+          path: |
+            logs/
+            docs/automation-validation-report.md
+            docs/final-validation-report.md
+          if-no-files-found: warn
+          retention-days: 30
