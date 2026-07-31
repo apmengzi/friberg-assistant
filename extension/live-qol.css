@@ -1,0 +1,5 @@
+.friberg-assistant-overlay .fa-refrezh { color: #102333; background: #b9c9ff; border-color: #d5defe; }
+.friberg-assistant-overlay .fa-combined { grid-column: 1 / -1; color: #14230b; background: #d8f36a; border-color: #efffa4; }
+.friberg-assistant-overlay .fa-auto-ready { grid-column: 1 / -1; }
+.friberg-assistant-overlay .fa-auto-ready[data-armed="true"] { color: #09262b; background: #a6ead6; border-color: #c5fff0; }
+.friberg-assistant-overlay .fa-notify-test { color: #d9ecff; background: #263a55; border-color: #60789b; }
