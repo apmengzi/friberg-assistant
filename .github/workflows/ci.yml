@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, fix/live-qol-096-clean]
     types: [ready_for_review]
   workflow_dispatch:
 
