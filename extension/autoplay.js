@@ -368,10 +368,8 @@
     if (count >= 8) return;
 
     if (count === 0) {
-      const first = qolButton('refrezh-first');
-      if (!first || first.disabled) return;
       beginAction(`${roundMarker()}|first`, '正在自动首猜 refrezh');
-      first.click();
+      void fastRefrezh();
       return;
     }
 
