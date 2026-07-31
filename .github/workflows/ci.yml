@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -33,6 +34,7 @@ jobs:
             'live-dom-adapter.js',
             'extension/background.js',
             'extension/content-script.js',
+            'extension/live-qol.js',
             'extension/overlay.js',
             'extension/options.js',
             'tools/repository-security-audit.js'
@@ -52,6 +54,9 @@ jobs:
 
       - name: Run extension contract
         run: node tests/run-extension-contract.js
+
+      - name: Run live QoL contract
+        run: node tests/run-live-qol-contract.js
 
       - name: Run automation core contract
         run: node tests/run-automation-core.js
