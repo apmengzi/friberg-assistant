@@ -6,21 +6,42 @@ $OutputExtension = Join-Path $ProjectRoot 'dist\friberg-assistant-extension'
 $OutputZip = Join-Path $ProjectRoot 'dist\friberg-assistant-extension.zip'
 $TemporaryZip = Join-Path $ProjectRoot 'dist\friberg-assistant-extension.next.zip'
 
-# These files are the shared, audited core. Keep the source extension in sync
-# before copying it into the user-loadable dist directory.
-Copy-Item -LiteralPath (Join-Path $ProjectRoot 'solver.js') -Destination (Join-Path $SourceExtension 'solver.js') -Force
-Copy-Item -LiteralPath (Join-Path $ProjectRoot 'automation-core.js') -Destination (Join-Path $SourceExtension 'automation-core.js') -Force
-Copy-Item -LiteralPath (Join-Path $ProjectRoot 'live-dom-adapter.js') -Destination (Join-Path $SourceExtension 'live-dom-adapter.js') -Force
-Copy-Item -LiteralPath (Join-Path $ProjectRoot 'data\players.game-646.json') -Destination (Join-Path $SourceExtension 'data\game-players-646.json') -Force
-
 if (Test-Path -LiteralPath $OutputExtension) {
   Remove-Item -LiteralPath $OutputExtension -Recurse -Force
 }
 New-Item -ItemType Directory -Path $OutputExtension -Force | Out-Null
-Copy-Item -Path (Join-Path $SourceExtension '*') -Destination $OutputExtension -Recurse -Force
+New-Item -ItemType Directory -Path (Join-Path $OutputExtension 'data') -Force | Out-Null
+
+# Race Lite deliberately ships only files referenced by its five-script manifest.
+@(
+  'manifest.json',
+  'feedback-parser-patch.js',
+  'race-policy.js',
+  'race-controller.js'
+) | ForEach-Object {
+  Copy-Item -LiteralPath (Join-Path $SourceExtension $_) -Destination (Join-Path $OutputExtension $_) -Force
+}
+Copy-Item -LiteralPath (Join-Path $ProjectRoot 'solver.js') -Destination (Join-Path $OutputExtension 'solver.js') -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot 'live-dom-adapter.js') -Destination (Join-Path $OutputExtension 'live-dom-adapter.js') -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot 'data\players.game-646.json') -Destination (Join-Path $OutputExtension 'data\game-players-646.json') -Force
 
 if (-not (Test-Path -LiteralPath (Join-Path $OutputExtension 'manifest.json'))) {
   throw 'Packaging failed: manifest.json is not at the root of the loadable extension folder.'
+}
+
+$expected = @(
+  'manifest.json',
+  'solver.js',
+  'live-dom-adapter.js',
+  'feedback-parser-patch.js',
+  'race-policy.js',
+  'race-controller.js',
+  'data\game-players-646.json'
+)
+foreach ($relative in $expected) {
+  if (-not (Test-Path -LiteralPath (Join-Path $OutputExtension $relative))) {
+    throw "Packaging failed: missing $relative"
+  }
 }
 
 Remove-Item -LiteralPath $TemporaryZip -Force -ErrorAction SilentlyContinue
@@ -31,5 +52,6 @@ Move-Item -LiteralPath $TemporaryZip -Destination $OutputZip -Force
   extensionDirectory = $OutputExtension
   zip = $OutputZip
   manifestAtRoot = Test-Path -LiteralPath (Join-Path $OutputExtension 'manifest.json')
+  shippedFiles = $expected.Count
   status = 'packaged'
 } | ConvertTo-Json -Compress
