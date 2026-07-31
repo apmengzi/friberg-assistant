@@ -6,23 +6,27 @@
   if (!Adapter || !Solver || !globalThis.chrome?.runtime) return;
 
   const OVERLAY = '#friberg-assistant-overlay';
-  const TICK_MS = 120;
+  const TICK_MS = 24;
   const FIRST_GUESS = 'refrezh';
+  const FIRST_SELECT_TIMEOUT_MS = 500;
   const SINGLE_NORMAL_ROUTE = '/single/normal';
   const TERMINAL_SINGLE_RE = /(恭喜，猜对了|正确答案|本局结束|很遗憾|congratulations|correct answer|game ended)/i;
   const AGAIN_RE = /^(再来一把|再来一局|再玩一局|again|play again)$/i;
 
   const state = {
-    submittingFirst: false,
+    fillingFirst: false,
     awaitingFirstProgress: false,
     firstSubmittedAt: 0,
     lastGuessCount: null,
+    playersPromise: null,
     loopArmed: false,
     loopCompleted: 0,
     loopTerminalSeen: false,
     loopRestarting: false,
     loopRestartAt: 0,
+    tickQueued: false,
     timer: null,
+    observer: null,
   };
 
   const normalize = value => typeof Solver.normalize === 'function'
@@ -142,7 +146,7 @@
     button.title = button.disabled
       ? '请先进入“单人 · 完整版”的实际对局。'
       : state.loopArmed
-        ? '自动完成当前完整版单人局，结算后点击“再来一把”并继续；点击可立即停止。'
+        ? '自动完成当前完整版单人局，结算后立即点击“再来一把”并继续；点击可立即停止。'
         : '仅在当前页面会话持续运行，刷新或离开完整版页面后关闭。';
   }
 
@@ -169,9 +173,10 @@
     ensureAutoplayArmed();
     setOverlay(
       '单人完整版循环已开启',
-      '将自动完成当前局，结算后自动点击“再来一把”，并重新开启下一局全自动。',
+      '将自动完成当前局，结算后立即点击“再来一把”，并重新开启下一局全自动。',
       '',
     );
+    scheduleTick();
   }
 
   function ensureLoopControl() {
@@ -198,37 +203,81 @@
   function noteGuessCount(count) {
     if (count !== null && count !== state.lastGuessCount) {
       if (count > 0) state.awaitingFirstProgress = false;
+      if (count === 0 && state.lastGuessCount !== null && state.lastGuessCount > 0) {
+        state.awaitingFirstProgress = false;
+        state.fillingFirst = false;
+      }
       state.lastGuessCount = count;
     }
-    if (!autoplayArmed()) state.awaitingFirstProgress = false;
+    if (!autoplayArmed()) {
+      state.awaitingFirstProgress = false;
+      state.fillingFirst = false;
+    }
   }
 
-  function recoverInitialSubmit() {
-    if (state.submittingFirst || state.awaitingFirstProgress || !autoplayArmed()) return;
+  function loadPlayers() {
+    if (!state.playersPromise) {
+      state.playersPromise = fetch(chrome.runtime.getURL('data/game-players-646.json'))
+        .then(response => {
+          if (!response.ok) throw new Error(`题库读取失败：${response.status}`);
+          return response.json();
+        })
+        .then(raw => typeof Solver.normalizeGamePlayers === 'function'
+          ? Solver.normalizeGamePlayers(raw).filter(player => player.enabled !== false)
+          : raw);
+    }
+    return state.playersPromise;
+  }
+
+  async function driveInitialGuess() {
+    if (state.fillingFirst || state.awaitingFirstProgress || !autoplayArmed()) return;
     const kind = routeKind();
     if (kind !== 'single' && kind !== 'multi') return;
     const count = guessCount();
     noteGuessCount(count);
     if (count !== 0) return;
 
-    const scan = Adapter.scan(document);
-    const input = scan.inputCandidates?.[0]?.element;
-    if (!input || normalize(input.value) !== FIRST_GUESS) return;
+    const initialScan = Adapter.scan(document);
+    const input = initialScan.inputCandidates?.[0]?.element;
+    if (!input) return;
 
-    state.submittingFirst = true;
+    state.fillingFirst = true;
     try {
+      const players = await loadPlayers();
+      const matches = players.filter(player => normalize(player.nick || player.nickname) === FIRST_GUESS);
+      if (matches.length !== 1) throw new Error(`题库中 ${FIRST_GUESS} 匹配 ${matches.length} 人。`);
+      const player = matches[0];
+
+      if (normalize(input.value) !== FIRST_GUESS) {
+        setOverlay('正在极速首猜 refrezh', '已检测到可操作搜索框，正在立即选择唯一选手。', '');
+        const selected = await Adapter.fillAndSelectUniqueOption({
+          input,
+          player,
+          players,
+          documentRef: document,
+          timeoutMs: FIRST_SELECT_TIMEOUT_MS,
+        });
+        if (selected?.status !== 'selected') {
+          if (!['missing', 'ambiguous', 'timeout'].includes(selected?.status)) {
+            setOverlay('极速首猜尚未就绪', '等待网页下拉选项或输入框进入可提交状态。', selected?.message || '');
+          }
+          return;
+        }
+      }
+
+      const scan = Adapter.scan(document);
       const result = Adapter.submitSelectedGuess({
         input,
-        player: { nick: FIRST_GUESS, nickname: FIRST_GUESS },
+        player,
         scanResult: scan,
         documentRef: document,
       });
       if (result?.submitted) {
         state.awaitingFirstProgress = true;
-        state.firstSubmittedAt = Date.now();
+        state.firstSubmittedAt = performance.now();
         setOverlay(
-          'refrezh 已自动提交',
-          '已绕过旧版“只填入不提交”的状态断层；正在等待网页生成第一行反馈。',
+          'refrezh 已极速提交',
+          '已在原网页按钮合法启用的第一时间提交，正在等待第一行可见反馈。',
           '',
         );
       } else if (result?.status && !['disabled', 'missing', 'ambiguous'].includes(result.status)) {
@@ -236,9 +285,9 @@
       }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
-      setOverlay('首猜自动提交失败', 'refrezh 已保留在输入框中，没有重复点击。', message);
+      setOverlay('首猜自动提交失败', '没有重复点击或绕过网页提交状态。', message);
     } finally {
-      state.submittingFirst = false;
+      state.fillingFirst = false;
     }
   }
 
@@ -254,21 +303,19 @@
       if (!state.loopTerminalSeen) {
         state.loopTerminalSeen = true;
         state.loopCompleted += 1;
-        state.loopRestartAt = Date.now() + 650;
+        state.loopRestartAt = performance.now() + 80;
         updateLoopControl();
       }
-      if (state.loopRestarting || Date.now() < state.loopRestartAt) return;
+      if (state.loopRestarting || performance.now() < state.loopRestartAt) return;
       const again = uniqueAgainButton(terminal);
-      if (!again) {
-        stopLoop('结算窗口中没有唯一的“再来一把”按钮，已停止以避免误点。');
-        return;
-      }
+      if (!again || again.disabled) return;
       state.loopRestarting = true;
-      setOverlay('正在开始下一局完整版', `已连续完成 ${state.loopCompleted} 局；正在点击“再来一把”。`, '');
+      setOverlay('正在开始下一局完整版', `已连续完成 ${state.loopCompleted} 局；正在立即点击“再来一把”。`, '');
       again.click();
       window.setTimeout(() => {
         state.loopRestarting = false;
-      }, 900);
+        scheduleTick();
+      }, 250);
       return;
     }
 
@@ -276,12 +323,14 @@
       state.loopTerminalSeen = false;
       state.loopRestarting = false;
       state.awaitingFirstProgress = false;
+      state.fillingFirst = false;
       state.lastGuessCount = null;
     }
     ensureAutoplayArmed();
   }
 
   function tick() {
+    state.tickQueued = false;
     try {
       updateLoopControl();
       const count = guessCount();
@@ -289,19 +338,42 @@
       if (
         state.awaitingFirstProgress
         && count === 0
-        && Date.now() - state.firstSubmittedAt > 14000
+        && performance.now() - state.firstSubmittedAt > 14000
       ) {
         state.awaitingFirstProgress = false;
       }
       driveSingleLoop();
-      recoverInitialSubmit();
+      void driveInitialGuess();
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       if (state.loopArmed) stopLoop('循环巡检遇到异常。', message);
     }
   }
 
+  function scheduleTick() {
+    if (state.tickQueued) return;
+    state.tickQueued = true;
+    queueMicrotask(() => requestAnimationFrame(tick));
+  }
+
+  void loadPlayers().catch(() => {});
+  state.observer?.disconnect();
+  state.observer = new MutationObserver(scheduleTick);
+  state.observer.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['class', 'disabled', 'aria-disabled', 'data-armed', 'value'],
+  });
+  document.addEventListener('input', scheduleTick, true);
+  document.addEventListener('change', scheduleTick, true);
+  document.addEventListener('click', scheduleTick, true);
+  window.addEventListener('popstate', scheduleTick);
+  document.addEventListener('visibilitychange', scheduleTick);
+
   clearInterval(state.timer);
-  state.timer = window.setInterval(tick, TICK_MS);
+  state.timer = window.setInterval(scheduleTick, TICK_MS);
   updateLoopControl();
+  scheduleTick();
 })();
