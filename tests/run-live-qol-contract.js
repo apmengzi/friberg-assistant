@@ -5,6 +5,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const manifest = JSON.parse(read('extension/manifest.json'));
+const pool = JSON.parse(read('data/players.game-646.json'));
 const scripts = manifest.content_scripts[0].js;
 const qol = read('extension/live-qol.js');
 const background = read('extension/background.js');
@@ -15,6 +16,7 @@ assert.ok(manifest.permissions.includes('tabs'));
 assert.ok(scripts.includes('live-qol.js'));
 assert.ok(scripts.indexOf('overlay.js') < scripts.indexOf('live-qol.js'));
 assert.ok(scripts.indexOf('live-qol.js') < scripts.indexOf('content-script.js'));
+assert.strictEqual(pool.filter(player => String(player.nickname || player.nick || '').toLocaleLowerCase() === 'refrezh').length, 1, 'bundled pool must contain one refrezh');
 
 assert.ok(qol.includes("dispatchEvent(new CustomEvent('friberg:force-rescan'"));
 assert.ok(qol.includes('currentVisibleSelfBoard'));
