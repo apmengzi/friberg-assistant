@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Friberg Assistant — Live DOM Assist",
-  "version": "0.9.5",
-  "description": "弗一把可见反馈助手：严格求解、BO3换局恢复、匹配通知、refrezh首猜及用户触发的填入与提交。",
+  "version": "0.9.6",
+  "description": "弗一把可见反馈助手：严格求解、BO3每小局重置、匹配通知诊断、refrezh首猜及一键填入提交。",
   "permissions": ["storage", "scripting", "notifications", "tabs"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "host_permissions": [
