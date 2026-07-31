@@ -6,51 +6,42 @@
   const Policy = globalThis.FribergRacePolicy;
   if (!Solver || !Adapter || !Policy || !globalThis.chrome?.runtime) return;
 
-  const FIRST_GUESS = Policy.opening || 'refrezh';
-  const MAX_GUESSES = 8;
-  const HUD_ID = 'friberg-race-lite-hud';
+  const FIRST = Policy.opening || 'refrezh';
   const STORAGE_KEY = 'fribergRaceLiteArmedV1';
-  const OPTION_SETTLE_TIMEOUT_MS = 700;
-  const SUBMIT_RETRY_WINDOW_MS = 650;
-  const FALLBACK_TICK_MS = 16;
+  const HUD_ID = 'friberg-race-lite-hud';
+  const FALLBACK_MS = 16;
+  const RETRY_MS = 8;
+  const ESTIMATED_COOLDOWN_MS = 1470;
 
   const state = {
-    armed: false,
-    loaded: false,
+    armed: sessionStorage.getItem(STORAGE_KEY) === '1',
+    ready: false,
     players: [],
     byNick: new Map(),
-    desiredNick: '',
-    desiredKey: '',
-    lastPreparedAt: 0,
-    lastSubmitAttemptAt: 0,
-    submitWindowStartedAt: 0,
     lastCount: null,
-    lastRoundToken: '',
-    cooldownDeadline: 0,
+    lastRound: '',
+    desired: '',
+    actionKey: '',
+    cooldownAt: 0,
+    lastAttemptAt: 0,
+    candidateCount: null,
     observer: null,
     timer: null,
     queued: false,
-    busy: false,
+    driving: false,
     hud: null,
-    status: '等待加载',
-    detail: '',
-    lastCandidateCount: null,
-    lastPolicySource: '',
   };
 
-  const normalize = value => typeof Solver.normalize === 'function'
+  const normalize = value => Solver.normalize
     ? Solver.normalize(value)
     : String(value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
 
-  function isVisible(element) {
+  function visible(element) {
     if (!(element instanceof Element)) return false;
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    return style.display !== 'none'
-      && style.visibility !== 'hidden'
-      && style.opacity !== '0'
-      && rect.width > 0
-      && rect.height > 0;
+    return style.display !== 'none' && style.visibility !== 'hidden'
+      && style.opacity !== '0' && rect.width > 0 && rect.height > 0;
   }
 
   function pageText() {
@@ -60,189 +51,149 @@
     return text.replace(/\s+/g, ' ').trim();
   }
 
-  function currentRoundToken() {
+  function roundToken() {
     const match = pageText().match(/第\s*(\d+)\s*局/);
-    return match ? `round-${match[1]}` : 'round-unknown';
+    return match ? `R${match[1]}` : 'R?';
   }
 
   function selfBoard() {
-    const explicit = Array.from(document.querySelectorAll('.player-board-self'))
-      .find(isVisible);
-    if (explicit) return explicit.querySelector('table.game-table') || explicit;
+    const card = Array.from(document.querySelectorAll('.player-board-self')).find(visible);
+    if (card) return card.querySelector('table.game-table') || card;
     const scan = Adapter.scan(document);
-    if (isVisible(scan?.autoBoard?.element)) return scan.autoBoard.element;
-    return scan?.boardCandidates?.find(candidate => (
-      candidate.ownership === 'self' && isVisible(candidate.element)
-    ))?.element || null;
+    if (visible(scan?.autoBoard?.element)) return scan.autoBoard.element;
+    return scan?.boardCandidates?.find(item => item.ownership === 'self' && visible(item.element))?.element || null;
   }
 
-  function ownGuessCount(board = selfBoard()) {
-    const explicit = board?.closest('.player-board-self') || board?.parentElement;
-    const text = explicit?.innerText || pageText();
-    const match = text.match(/(?:我的猜测|我的竞猜|my guesses?)[^0-9]{0,40}(\d+)\s*\/\s*8\b/i);
+  function guessCount(board) {
+    const card = board?.closest('.player-board-self') || board?.parentElement;
+    const match = String(card?.innerText || '').match(/(?:我的猜测|我的竞猜|my guesses?)[^0-9]{0,40}(\d+)\s*\/\s*8\b/i);
     const count = Number(match?.[1]);
-    if (Number.isInteger(count) && count >= 0 && count <= MAX_GUESSES) return count;
+    if (Number.isInteger(count) && count >= 0 && count <= 8) return count;
     if (!board) return null;
     const rows = Adapter.feedbackRows(board).filter(row => {
-      const cell = row.querySelector('td,th,[role="gridcell"],[role="cell"]') || row.firstElementChild;
-      const nick = String(cell?.textContent || '').trim();
+      const first = row.querySelector('td,th,[role="gridcell"],[role="cell"]') || row.firstElementChild;
+      const nick = String(first?.textContent || '').trim();
       return nick && !/^[•·.\-—]+$/.test(nick);
     });
-    return rows.length <= MAX_GUESSES ? rows.length : null;
+    return rows.length <= 8 ? rows.length : null;
   }
 
-  function raceSurface() {
-    const dock = Array.from(document.querySelectorAll('.input-dock')).find(isVisible)
-      || document.querySelector('.input-dock');
-    const form = dock?.querySelector('form.input-bar') || document.querySelector('form.input-bar');
-    const input = form?.querySelector('input.input[role="combobox"],input[role="combobox"],input.input')
-      || document.querySelector('.input-dock input[role="combobox"],form.input-bar input');
-    const button = form?.querySelector('button.btn,button[type="submit"],button:not([type])');
-    if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) return null;
-    return { dock, form, input, button };
+  function surface() {
+    const form = Array.from(document.querySelectorAll('.input-dock form.input-bar,form.input-bar')).find(visible);
+    const input = form?.querySelector('input[role="combobox"],input.input');
+    if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement)) return null;
+    return { form, input };
+  }
+
+  function setHud(status, detail = '') {
+    const hud = ensureHud();
+    const statusNode = hud.querySelector('[data-race-status]');
+    const detailNode = hud.querySelector('[data-race-detail]');
+    const toggle = hud.querySelector('[data-race-toggle]');
+    if (statusNode.textContent !== status) statusNode.textContent = status;
+    if (detailNode.textContent !== detail) detailNode.textContent = detail;
+    const label = state.armed ? '竞速：开（点击停止）' : '竞速：关（点击开启）';
+    if (toggle.textContent !== label) toggle.textContent = label;
+    toggle.style.background = state.armed ? '#77efcc' : '#d8ff3f';
   }
 
   function ensureHud() {
     if (state.hud?.isConnected) return state.hud;
-    const host = document.createElement('div');
-    host.id = HUD_ID;
-    host.style.cssText = [
-      'position:fixed', 'left:12px', 'bottom:12px', 'z-index:2147483647',
-      'font:12px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace',
-      'background:#10292d', 'color:#e8ffef', 'border:1px solid #52e0b4',
-      'padding:8px 10px', 'border-radius:6px', 'box-shadow:0 4px 18px #0008',
-      'min-width:198px', 'user-select:none',
-    ].join(';');
+    const hud = document.createElement('div');
+    hud.id = HUD_ID;
+    hud.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:2147483647;min-width:190px;padding:7px 9px;border:1px solid #52e0b4;border-radius:5px;background:#10292d;color:#e8ffef;box-shadow:0 4px 16px #0008;font:12px/1.35 Consolas,monospace;user-select:none';
     const status = document.createElement('div');
-    status.dataset.raceStatus = 'true';
+    status.dataset.raceStatus = '1';
     status.style.fontWeight = '700';
     const detail = document.createElement('div');
-    detail.dataset.raceDetail = 'true';
-    detail.style.cssText = 'margin-top:3px;color:#bce9dd;max-width:320px';
+    detail.dataset.raceDetail = '1';
+    detail.style.cssText = 'margin-top:2px;color:#bce9dd';
     const toggle = document.createElement('button');
     toggle.type = 'button';
-    toggle.dataset.raceToggle = 'true';
-    toggle.style.cssText = 'margin-top:7px;width:100%;background:#d8ff3f;color:#152015;border:0;padding:5px 8px;font-weight:700;cursor:pointer';
+    toggle.dataset.raceToggle = '1';
+    toggle.style.cssText = 'margin-top:6px;width:100%;padding:5px;border:0;font-weight:700;cursor:pointer;color:#152015';
     toggle.addEventListener('click', event => {
       event.preventDefault();
       event.stopPropagation();
       state.armed = !state.armed;
       sessionStorage.setItem(STORAGE_KEY, state.armed ? '1' : '0');
-      resetAction(state.armed ? '等待当前小局' : '已停止所有自动操作');
-      updateHud();
+      resetAction();
+      setHud(state.armed ? '竞速已开启' : '竞速已关闭', state.armed ? '等待多人房间' : '不会操作网页');
       schedule();
     });
-    host.append(status, detail, toggle);
-    document.documentElement.append(host);
-    state.hud = host;
-    updateHud();
-    return host;
+    hud.append(status, detail, toggle);
+    document.documentElement.append(hud);
+    state.hud = hud;
+    return hud;
   }
 
-  function updateHud(status = state.status, detail = state.detail) {
-    state.status = status;
-    state.detail = detail;
-    const host = ensureHud();
-    host.querySelector('[data-race-status]').textContent = status;
-    host.querySelector('[data-race-detail]').textContent = detail;
-    const toggle = host.querySelector('[data-race-toggle]');
-    toggle.textContent = state.armed ? '竞速：开（点击停止）' : '竞速：关（点击开启）';
-    toggle.style.background = state.armed ? '#77efcc' : '#d8ff3f';
-  }
-
-  function feedbackForRow(row) {
+  function rowFeedback(row) {
     const read = Adapter.readFeedbackRow(row);
-    if (!read.valid) return { valid: false, errors: read.errors };
+    if (!read.valid) return null;
     const guess = state.byNick.get(normalize(read.nickname));
-    if (!guess) return { valid: false, errors: [`题库没有 ${read.nickname}`] };
-    const reading = read.reading;
-    const feedback = Solver.makeFeedback([
-      reading.team,
-      reading.country,
-      reading.age?.color,
-      reading.role,
-      reading.majorWins?.color,
-      reading.majorAppearances?.color,
-      reading.status,
+    if (!guess) return null;
+    const r = read.reading;
+    const feedback = Solver.buildFeedback(guess, [
+      r.team,
+      r.country,
+      r.age?.color,
+      r.role,
+      r.majorWins?.color,
+      r.majorAppearances?.color,
+      r.status,
     ], {
-      age: reading.age?.direction || 'none',
-      majorWins: reading.majorWins?.direction || 'none',
-      majorApps: reading.majorAppearances?.direction || 'none',
+      age: r.age?.direction || 'none',
+      majorWins: r.majorWins?.direction || 'none',
+      majorApps: r.majorAppearances?.direction || 'none',
     });
-    const validation = Solver.validateFeedback(feedback);
-    return validation.valid
-      ? { valid: true, guess, feedback }
-      : { valid: false, errors: validation.errors };
+    return Solver.validateFeedback(feedback).valid ? { guess, feedback } : null;
   }
 
-  function currentHistory(board, count) {
+  function history(board, count) {
     const rows = Adapter.feedbackRows(board);
     if (rows.length < count) return null;
-    const selected = rows.slice(0, count);
-    const history = [];
+    const feedbacks = [];
     const guesses = [];
-    for (const row of selected) {
-      const result = feedbackForRow(row);
-      if (!result.valid) return null;
-      history.push(result.feedback);
-      guesses.push(result.guess);
+    for (const row of rows.slice(0, count)) {
+      const item = rowFeedback(row);
+      if (!item) return null;
+      feedbacks.push(item.feedback);
+      guesses.push(item.guess);
     }
-    return { history, guesses };
+    return { feedbacks, guesses };
   }
 
-  function raceChoice(history, guesses) {
-    const guessedKeys = new Set(guesses.map(Solver.playerKey));
-    const candidates = Solver.filterCandidates(state.players, history, guessedKeys);
-    const choice = Policy.choose({ Solver, candidates, guessedKeys });
-    return { candidates, choice };
-  }
-
-  function desiredNickname(board, count) {
+  function nextNickname(board, count) {
     if (count === 0) {
-      state.lastCandidateCount = Policy.poolSize;
-      state.lastPolicySource = '固定首猜';
-      return FIRST_GUESS;
+      state.candidateCount = Policy.poolSize;
+      return FIRST;
     }
-    const parsed = currentHistory(board, count);
+    const parsed = history(board, count);
     if (!parsed) return '';
-    const { candidates, choice } = raceChoice(parsed.history, parsed.guesses);
-    state.lastCandidateCount = candidates.length;
-    if (!candidates.length) {
-      updateHud('反馈与题库不一致', '未提交任何猜测');
-      return '';
-    }
-    state.lastPolicySource = '缓存精确策略';
-    return choice?.nick || '';
+    const guessedKeys = new Set(parsed.guesses.map(Solver.playerKey));
+    const candidates = Solver.filterCandidates(state.players, parsed.feedbacks, guessedKeys);
+    state.candidateCount = candidates.length;
+    if (!candidates.length) return '';
+    return Policy.choose({ Solver, candidates, guessedKeys })?.nick || '';
   }
 
-  function resetAction(reason = '') {
-    state.desiredNick = '';
-    state.desiredKey = '';
-    state.lastPreparedAt = 0;
-    state.lastSubmitAttemptAt = 0;
-    state.submitWindowStartedAt = 0;
-    state.cooldownDeadline = 0;
-    if (reason) updateHud(state.armed ? '竞速已开启' : '竞速已关闭', reason);
-  }
-
-  function setReactInput(input, value) {
+  function setReactInput(input, nickname) {
     input.focus({ preventScroll: true });
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-    setter?.call(input, value);
+    setter?.call(input, nickname);
     input.dispatchEvent(typeof InputEvent === 'function'
-      ? new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: value })
+      ? new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: nickname })
       : new Event('input', { bubbles: true, composed: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
   }
 
-  function exactOption(nickname) {
+  function exactOptions(nickname) {
     return Array.from(document.querySelectorAll('.input-dock ul.autocomplete-list li[role="option"],ul.autocomplete-list li[role="option"]'))
-      .filter(isVisible)
-      .filter(element => normalize(element.textContent) === normalize(nickname));
+      .filter(visible)
+      .filter(option => normalize(option.textContent) === normalize(nickname));
   }
 
-  function selectExactOption(option) {
-    return option.dispatchEvent(new MouseEvent('mousedown', {
+  function submitThroughReact(option) {
+    option.dispatchEvent(new MouseEvent('mousedown', {
       bubbles: true,
       cancelable: true,
       composed: true,
@@ -252,91 +203,78 @@
     }));
   }
 
-  function cooldownRemainingMs() {
-    const text = Array.from(document.querySelectorAll('.guess-input-feedback,[role="status"]'))
-      .filter(isVisible)
-      .map(element => element.textContent || '')
-      .join(' ');
-    const match = text.match(/(?:冷却|cooldown)[^0-9]{0,16}(\d+(?:\.\d+)?)\s*(?:秒|s)/i);
-    return match ? Math.max(0, Math.round(Number(match[1]) * 1000)) : 0;
+  function resetAction() {
+    state.desired = '';
+    state.actionKey = '';
+    state.lastAttemptAt = 0;
   }
 
-  function armCooldownDeadline() {
-    const remaining = cooldownRemainingMs();
-    if (remaining > 0) state.cooldownDeadline = performance.now() + remaining + 35;
-  }
-
-  function prepareDesired(surface, nickname, actionKey) {
-    if (state.desiredKey !== actionKey || normalize(state.desiredNick) !== normalize(nickname)) {
-      state.desiredKey = actionKey;
-      state.desiredNick = nickname;
-      state.lastPreparedAt = 0;
-      state.lastSubmitAttemptAt = 0;
-      state.submitWindowStartedAt = 0;
-    }
-    if (normalize(surface.input.value) !== normalize(nickname)) {
-      setReactInput(surface.input, nickname);
-      state.lastPreparedAt = performance.now();
-      updateHud(`准备 ${nickname}`, `${state.lastCandidateCount ?? '?'} 候选 · ${state.lastPolicySource}`);
-      return false;
-    }
-    const options = exactOption(nickname);
-    if (options.length !== 1) return false;
-    if (!state.submitWindowStartedAt) state.submitWindowStartedAt = performance.now();
-    const remaining = state.cooldownDeadline ? state.cooldownDeadline - performance.now() : cooldownRemainingMs();
-    if (remaining > 8) return false;
-    if (performance.now() - state.lastSubmitAttemptAt < 12) return false;
-    state.lastSubmitAttemptAt = performance.now();
-    selectExactOption(options[0]);
-    updateHud(`提交 ${nickname}`, remaining > 0 ? `预计冷却剩余 ${Math.ceil(remaining)}ms` : '已触发原网页提交路径');
-    return true;
-  }
-
-  function terminalPage() {
+  function terminal() {
     return /(比赛结束|本场比赛结束|最终比分|你赢下了整场比赛|你输掉了整场比赛|match over|match finished)/i.test(pageText());
   }
 
   function drive() {
-    if (state.busy || !state.armed || !state.loaded || !location.pathname.startsWith('/multi/room')) return;
-    state.busy = true;
+    if (state.driving || !state.armed || !state.ready || !location.pathname.startsWith('/multi/room')) return;
+    state.driving = true;
     try {
-      if (terminalPage()) {
+      if (terminal()) {
         state.armed = false;
         sessionStorage.removeItem(STORAGE_KEY);
-        resetAction('比赛已结束');
+        resetAction();
+        setHud('比赛已结束', '竞速已自动关闭');
         return;
       }
-      const surface = raceSurface();
       const board = selfBoard();
-      const count = ownGuessCount(board);
-      if (!surface || !board || count === null) {
-        updateHud('等待对局界面', '尚未同时发现自己的棋盘与输入栏');
+      const controls = surface();
+      const count = guessCount(board);
+      if (!board || !controls || count === null) {
+        setHud('等待对局界面', '需要自己的棋盘和输入栏');
         return;
       }
-      const round = currentRoundToken();
-      if (state.lastCount !== count || state.lastRoundToken !== round) {
+      const round = roundToken();
+      if (state.lastCount !== count || state.lastRound !== round) {
+        const countAdvanced = state.lastCount !== null && count > state.lastCount;
         state.lastCount = count;
-        state.lastRoundToken = round;
-        resetAction(`${round} · ${count}/8`);
-        armCooldownDeadline();
+        state.lastRound = round;
+        state.cooldownAt = countAdvanced ? performance.now() + ESTIMATED_COOLDOWN_MS : 0;
+        resetAction();
       }
-      if (count >= MAX_GUESSES) {
-        updateHud('等待本局结束', `${count}/8`);
+      if (count >= 8) {
+        setHud('等待本局结束', `${round} · 8/8`);
         return;
       }
-      const nickname = desiredNickname(board, count);
+      const nickname = nextNickname(board, count);
       if (!nickname) {
-        updateHud('等待完整反馈', `${count}/8 · 当前反馈尚未可安全解析`);
+        setHud('等待完整反馈', `${round} · ${count}/8`);
         return;
       }
       const actionKey = `${round}|${count}|${normalize(nickname)}`;
-      prepareDesired(surface, nickname, actionKey);
-      if (state.submitWindowStartedAt && performance.now() - state.submitWindowStartedAt > SUBMIT_RETRY_WINDOW_MS) {
-        state.submitWindowStartedAt = 0;
-        setReactInput(surface.input, nickname);
+      if (state.actionKey !== actionKey) {
+        state.actionKey = actionKey;
+        state.desired = nickname;
+        state.lastAttemptAt = 0;
       }
+      if (normalize(controls.input.value) !== normalize(nickname)) {
+        setReactInput(controls.input, nickname);
+        setHud(`已预填 ${nickname}`, `${state.candidateCount ?? '?'} 候选 · ${count}/8`);
+        return;
+      }
+      const options = exactOptions(nickname);
+      if (options.length !== 1) {
+        setHud(`等待唯一选项 ${nickname}`, `${options.length} 个精确项`);
+        return;
+      }
+      const remaining = state.cooldownAt - performance.now();
+      if (remaining > 0) {
+        setHud(`已预填 ${nickname}`, `冷却约 ${Math.ceil(remaining)}ms`);
+        return;
+      }
+      if (performance.now() - state.lastAttemptAt < RETRY_MS) return;
+      state.lastAttemptAt = performance.now();
+      submitThroughReact(options[0]);
+      setHud(`提交 ${nickname}`, '已触发原网页 onMouseDown → onPick');
     } finally {
-      state.busy = false;
+      state.driving = false;
     }
   }
 
@@ -350,23 +288,25 @@
     });
   }
 
-  async function loadPlayers() {
+  async function load() {
     const response = await fetch(chrome.runtime.getURL('data/game-players-646.json'));
     if (!response.ok) throw new Error(`题库读取失败：${response.status}`);
-    const raw = await response.json();
-    const players = Solver.normalizeGamePlayers(raw).filter(player => player.enabled !== false);
+    const players = Solver.normalizeGamePlayers(await response.json()).filter(player => player.enabled !== false);
     if (players.length !== Policy.poolSize) throw new Error(`题库数量 ${players.length} 与策略 ${Policy.poolSize} 不一致`);
     state.players = players;
     state.byNick = new Map(players.map(player => [normalize(player.nick), player]));
-    state.loaded = true;
-    updateHud('竞速引擎已就绪', `${players.length} 人 · 二猜率 41.49%`);
+    state.ready = true;
+    setHud('竞速引擎已就绪', `${players.length} 人 · 二猜理论率 41.49%`);
     schedule();
   }
 
   function boot() {
-    state.armed = sessionStorage.getItem(STORAGE_KEY) === '1';
     ensureHud();
-    state.observer = new MutationObserver(schedule);
+    setHud('正在加载竞速引擎', '只加载多人竞速所需模块');
+    state.observer = new MutationObserver(records => {
+      if (records.every(record => state.hud?.contains(record.target))) return;
+      schedule();
+    });
     state.observer.observe(document.documentElement, {
       subtree: true,
       childList: true,
@@ -375,13 +315,9 @@
       attributeFilter: ['class', 'disabled', 'aria-disabled', 'aria-selected', 'aria-expanded'],
     });
     document.addEventListener('input', schedule, true);
-    document.addEventListener('change', schedule, true);
     document.addEventListener('mousedown', schedule, true);
-    document.addEventListener('click', schedule, true);
-    state.timer = window.setInterval(() => {
-      if (state.armed) drive();
-    }, FALLBACK_TICK_MS);
-    void loadPlayers().catch(cause => updateHud('竞速引擎加载失败', cause instanceof Error ? cause.message : String(cause)));
+    state.timer = window.setInterval(() => { if (state.armed) drive(); }, FALLBACK_MS);
+    void load().catch(error => setHud('竞速引擎加载失败', error instanceof Error ? error.message : String(error)));
   }
 
   if (document.documentElement) boot();
