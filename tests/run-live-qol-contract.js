@@ -12,7 +12,7 @@ const background = read('extension/background.js');
 const qolCss = read('extension/live-qol.css');
 const pool = JSON.parse(read('data/players.game-646.json'));
 
-assert.ok(['0.9.6', '0.9.7'].includes(manifest.version));
+assert.strictEqual(manifest.version, '0.9.8');
 assert.ok(manifest.permissions.includes('notifications'));
 assert.ok(manifest.permissions.includes('tabs'));
 assert.ok(scripts.includes('live-qol.js'));
