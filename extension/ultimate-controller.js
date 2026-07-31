@@ -19,8 +19,12 @@
   const LOOP_LIMIT_MS = 60 * 60 * 1000;
   const SINGLE_LIMIT_MS = 30 * 60 * 1000;
   const MULTI_LIMIT_MS = 45 * 60 * 1000;
-  const RETRY_AFTER_MS = 4_500;
-  const MAX_RETRIES = 3;
+  const MULTI_COOLDOWN_MS = 2_000;
+  const COOLDOWN_EARLY_MS = 15;
+  const SUBMIT_RETRY_MS = 12;
+  const SUBMIT_TIMEOUT_MS = 3_500;
+  const MAX_SUBMIT_ATTEMPTS = 180;
+  const DRIVE_INTERVAL_MS = 12;
 
   const state = {
     mode: MODES.OFF,
@@ -32,8 +36,10 @@
     lastRoundBase: '',
     roundKey: '',
     previousCount: null,
+    cooldownReadyAt: 0,
     pendingActionKey: '',
-    pendingAt: 0,
+    pendingStartedAt: 0,
+    pendingAttemptAt: 0,
     pendingAttempts: 0,
     lastRecommendation: null,
     lastError: '',
@@ -75,7 +81,6 @@
     MODES.MULTI_SAFE,
     MODES.MULTI_RACE,
   ].includes(state.mode);
-
   const isSingleMode = mode => [MODES.SINGLE_ONCE, MODES.SINGLE_LOOP].includes(mode);
   const isMultiMode = mode => [MODES.MULTI_SAFE, MODES.MULTI_RACE].includes(mode);
   const strategy = () => state.mode === MODES.MULTI_RACE
@@ -108,7 +113,8 @@
 
   function clearPending() {
     state.pendingActionKey = '';
-    state.pendingAt = 0;
+    state.pendingStartedAt = 0;
+    state.pendingAttemptAt = 0;
     state.pendingAttempts = 0;
   }
 
@@ -117,6 +123,7 @@
     state.lastRoundBase = '';
     state.roundKey = '';
     state.previousCount = null;
+    state.cooldownReadyAt = 0;
     state.completedRoundKey = '';
     state.restartPending = false;
     state.restartAt = 0;
@@ -155,10 +162,10 @@
     render({
       status: `${modeLabel(mode)}已开启`,
       detail: mode === MODES.SINGLE_LOOP
-        ? '将自动完成当前局，并在结算后继续“再来一局”；离开页面、超时或异常时停止。'
+        ? '自动完成当前局，并在结算后继续“再来一局”；离开页面、超时或异常时停止。'
         : mode === MODES.MULTI_RACE
-          ? '固定 refrezh 首猜，按可见反馈走竞速策略并完成整场多人比赛。'
-          : '固定 refrezh 首猜，按可见反馈自动完成。',
+          ? '固定 refrezh 首猜；CD 内提前计算和预填，CD 到点立即提交下一猜。'
+          : '固定 refrezh 首猜，读取可见反馈并自动完成。',
     });
     schedule();
   }
@@ -243,17 +250,23 @@
 
   function updateRound(count, base) {
     const oldCount = state.previousCount;
-    const baseChanged = state.lastRoundBase && state.lastRoundBase !== base;
+    const baseChanged = Boolean(state.lastRoundBase && state.lastRoundBase !== base);
     const reset = Number.isInteger(oldCount) && oldCount > 0 && count === 0;
     if (baseChanged || reset) {
       state.roundEpoch += 1;
       state.completedRoundKey = '';
+      state.cooldownReadyAt = 0;
       clearPending();
     }
     if (Number.isInteger(oldCount) && count > oldCount) {
       state.stats.guesses += count - oldCount;
+      state.oneShot = false;
       clearPending();
+      state.cooldownReadyAt = state.route === 'multi'
+        ? performance.now() + MULTI_COOLDOWN_MS - COOLDOWN_EARLY_MS
+        : 0;
     }
+    if (count === 0) state.cooldownReadyAt = 0;
     state.lastRoundBase = base;
     state.previousCount = count;
     state.roundKey = `${base}|${state.roundEpoch}`;
@@ -276,7 +289,7 @@
       if (state.mode === MODES.SINGLE_LOOP) {
         const button = Dom.againButton();
         if (!button) {
-          render({ status: '等待下一局按钮', detail: '已经完成本局，但“再来一局”按钮尚未出现。' });
+          render({ status: '等待下一局按钮', detail: '已经完成本局，但结算区的“再来一局”按钮尚未出现。' });
           return true;
         }
         const now = Date.now();
@@ -353,61 +366,102 @@
     return activeAuto() || state.oneShot;
   }
 
+  function pendingAccepted(actionKey, nickname, count) {
+    if (state.pendingActionKey !== actionKey) return false;
+    const surface = Dom.inputSurface();
+    if (surface && !Dom.compact(surface.input.value)) {
+      state.oneShot = false;
+      render({
+        status: `网页已接受 ${nickname}`,
+        detail: `输入框已经由官方组件清空，等待棋盘从 ${count}/8 更新。`,
+        progress: `进度 ${count}/8`,
+      });
+      return true;
+    }
+    return false;
+  }
+
   function act(context) {
     const nickname = context.recommendation.player.nick;
     const actionKey = `${context.roundKey}|${context.count}|${Solver.normalize(nickname)}`;
-    const now = Date.now();
+    const perfNow = performance.now();
 
+    if (pendingAccepted(actionKey, nickname, context.count)) return;
     if (state.pendingActionKey === actionKey) {
-      if (now - state.pendingAt < RETRY_AFTER_MS) {
-        render({
-          status: `已提交 ${nickname}`,
-          detail: `等待网页把进度从 ${context.count}/8 更新；不会重复提交。`,
-          progress: `进度 ${context.count}/8`,
-        });
-        return;
-      }
-      if (state.pendingAttempts >= MAX_RETRIES) {
+      if (perfNow - state.pendingStartedAt > SUBMIT_TIMEOUT_MS || state.pendingAttempts >= MAX_SUBMIT_ATTEMPTS) {
         state.stats.errors += 1;
-        stop('网页长时间没有确认这次猜测。', `提交 ${nickname} 后 ${MAX_RETRIES} 次重试仍无进度变化。`);
+        stop(
+          '网页长时间没有确认这次猜测。',
+          `提交 ${nickname} 已尝试 ${state.pendingAttempts} 次，进度仍是 ${context.count}/8。`,
+        );
         return;
       }
-      state.pendingActionKey = '';
+      if (perfNow - state.pendingAttemptAt < SUBMIT_RETRY_MS) return;
     }
 
-    const result = Dom.submitExact(nickname);
-    if (result.status === 'filled') {
+    const prepared = Dom.prepareExact(nickname);
+    if (prepared.status === 'filled') {
       render({
         status: `已预填 ${nickname}`,
-        detail: '不等待下拉项；React 识别出准确昵称后立即提交。',
+        detail: context.kind === 'multi' && context.count > 0
+          ? '下一猜已在 2 秒 CD 内提前算好并写入。'
+          : '不等待或点击下拉项；等待官方按钮识别准确昵称。',
         progress: `进度 ${context.count}/8`,
       });
       return;
     }
-    if (result.status === 'waiting-react') {
+    if (prepared.status === 'waiting-react') {
       render({
-        status: `等待提交 ${nickname}`,
-        detail: '准确昵称已经写入，等待网页内部选手列表使原提交按钮可用。',
+        status: `等待网页识别 ${nickname}`,
+        detail: '准确昵称已写入；只等待官方 React 提交按钮变为可用。',
         progress: `进度 ${context.count}/8`,
       });
       return;
     }
-    if (result.status === 'submitted') {
+    if (prepared.status !== 'ready') {
+      state.stats.errors += 1;
+      state.lastError = `无法准备提交：${prepared.status}`;
+      if (activeAuto()) stop('找不到可用的网页猜测表单。', state.lastError);
+      else render({ status: '未提交', detail: state.lastError, error: state.lastError });
+      return;
+    }
+
+    const cooldownLeft = context.kind === 'multi' && context.count > 0
+      ? state.cooldownReadyAt - perfNow
+      : 0;
+    if (cooldownLeft > 0) {
+      render({
+        status: `已预填 ${nickname}，等待 CD`,
+        detail: `约 ${(cooldownLeft / 1000).toFixed(2)} 秒后进入逐帧提交窗口。`,
+        progress: `进度 ${context.count}/8`,
+      });
+      return;
+    }
+
+    const submitted = Dom.submitPrepared(prepared.surface);
+    if (submitted.status === 'waiting-react') return;
+    if (submitted.status !== 'submitted') {
+      state.stats.errors += 1;
+      state.lastError = `提交表单失败：${submitted.status}`;
+      if (activeAuto()) stop('官方表单在提交前失效。', state.lastError);
+      else render({ status: '未提交', detail: state.lastError, error: state.lastError });
+      return;
+    }
+
+    if (state.pendingActionKey !== actionKey) {
       state.pendingActionKey = actionKey;
-      state.pendingAt = now;
-      state.pendingAttempts += 1;
-      state.oneShot = false;
-      render({
-        status: `已提交 ${nickname}`,
-        detail: context.recommendation.note || context.recommendation.reason || '等待可见反馈。',
-        progress: `进度 ${context.count}/8`,
-      });
-      return;
+      state.pendingStartedAt = perfNow;
+      state.pendingAttempts = 0;
     }
-    state.stats.errors += 1;
-    state.lastError = `无法提交：${result.status}`;
-    if (activeAuto()) stop('找不到可用的网页提交表单。', state.lastError);
-    else render({ status: '未提交', detail: state.lastError, error: state.lastError });
+    state.pendingAttemptAt = perfNow;
+    state.pendingAttempts += 1;
+    render({
+      status: `正在提交 ${nickname}`,
+      detail: context.kind === 'multi' && context.count > 0
+        ? `已到 CD 边界；第 ${state.pendingAttempts} 次走官方表单，网页接受后立即停止重试。`
+        : '已走官方表单，等待可见反馈。',
+      progress: `进度 ${context.count}/8`,
+    });
   }
 
   function drive() {
@@ -564,7 +618,7 @@
     document.addEventListener('input', schedule, true);
     document.addEventListener('submit', schedule, true);
     document.addEventListener('click', schedule, true);
-    state.timer = window.setInterval(drive, state.mode === MODES.MULTI_RACE ? 8 : 45);
+    state.timer = window.setInterval(drive, DRIVE_INTERVAL_MS);
     schedule();
   }
 
