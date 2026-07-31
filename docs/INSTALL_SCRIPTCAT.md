@@ -2,7 +2,7 @@
 
 要导入的脚本是：
 
-`C:\Users\30369\Documents\Codex\2026-07-27\https-chatgpt-com-share-6a6635c6-2c34\dist\friberg-assistant.user.js`
+`<项目根目录>\dist\friberg-assistant.user.js`
 
 它与 `friberg-assistant-scriptcat.user.js` 内容相同；前者文件名更短，适合直接导入。
 

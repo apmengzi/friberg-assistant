@@ -1,3 +1,0 @@
-- main [ref=f3e2]:
-  - heading "Friberg ScriptCat local harness" [level=1] [ref=f3e3]
-  - paragraph [ref=f3e4]: Only verifies that the bundled readonly overlay loads without a userscript manager.
