@@ -29,10 +29,12 @@ assert.ok(autoplay.includes("document.querySelectorAll('.guess-progress')"));
 assert.ok(autoplay.includes('bindSingleBoardIfUnique'));
 assert.ok(autoplay.includes('candidates.length === 1'));
 assert.ok(autoplay.includes("qolButton('fill-submit')"));
-assert.ok(autoplay.includes("qolButton('refrezh-first')"));
+assert.ok(autoplay.includes('async function fastRefrezh()'));
+assert.ok(autoplay.includes('void fastRefrezh()'));
 assert.ok(autoplay.includes('event.stopImmediatePropagation()'));
 assert.ok(autoplay.includes('timeoutMs: 900'));
 assert.ok(autoplay.includes("baseButton('submit')"));
+assert.ok(autoplay.includes('assistantHasProcessedFeedback'));
 assert.ok(autoplay.includes('ACTION_TIMEOUT_MS'));
 assert.ok(autoplay.includes("disarm('插件报告了无法安全继续的页面状态。"));
 
