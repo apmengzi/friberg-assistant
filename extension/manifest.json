@@ -41,6 +41,7 @@
         "production-data-sync.js",
         "feedback-parser-patch.js",
         "overlay.js",
+        "data-sync-ui.js",
         "live-qol.js",
         "content-script.js",
         "autoplay.js",
@@ -60,6 +61,7 @@
         "live-dom-adapter.js",
         "production-data-sync.js",
         "feedback-parser-patch.js",
+        "data-sync-ui.js",
         "data/game-players-646.json"
       ],
       "matches": [
