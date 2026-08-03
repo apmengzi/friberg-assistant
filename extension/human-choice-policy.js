@@ -5,18 +5,24 @@
   const Solver = globalThis.GameSolver;
   if (!Automation?.AssistantSession || !Solver) return;
 
-  const HUMAN_ANSWER_THRESHOLD = 12;
+  // Human-priority is deliberately a tie-break / near-tie policy. It should
+  // make recommendations feel like a strong human player without throwing
+  // away a materially better information split.
+  const HUMAN_ANSWER_THRESHOLD = 24;
+  const SMALL_DIRECT_ANSWER_THRESHOLD = 3;
+  const EXPECTED_REMAINING_RATIO = 1.12;
+  const EXPECTED_REMAINING_ABSOLUTE_SLACK = 0.25;
   const normalize = value => Solver.normalize(String(value || ''));
 
   const FAME_TIERS = [
     [100, ['s1mple', 'zywoo', 'niko', 'device', 'donk', 'm0nesy']],
     [95, ['karrigan', 'fallen', 'coldzera', 'olofmeister', 'get_right', 'f0rest', 'dupreeh', 'gla1ve', 'apex', 'ropz', 'twistzz', 'rain', 'electronic', 'sh1ro', 'b1t', 'jame']],
     [90, ['broky', 'ax1le', 'cadian', 'snax', 'hooxi', 'stewie2k', 'tarik', 'kennys', 'guardian', 'jw', 'flusha', 'krimz', 'xyp9x', 'magisk', 'elige', 'naf', 'yekindar', 'hunter', 'malbsmd', 'w0nderful']],
-    [85, ['fer', 'taco', 'fnx', 'boltz', 'neymar', 'adren', 'dosia', 'hobbit', 'zeus', 'edward', 'seized', 'boombl4', 'perfecto', 'flamie', 'simple', 'dev1ce', 'm0nesy', 'chopper', 'zont1x', 'magixx', 'wonderful']],
+    [85, ['fer', 'taco', 'fnx', 'boltz', 'adren', 'dosia', 'hobbit', 'zeus', 'edward', 'seized', 'boombl4', 'perfecto', 'flamie', 'chopper', 'zont1x', 'magixx']],
     [80, ['nertz', 'spinx', 'flamez', 'mezii', 'xertion', 'torzsi', 'siuhy', 'jimpphat', 'frozen', 'woxic', 'xantares', 'tabsen', 'syrson', 'stavn', 'jabbi', 'teses', 'sjuush', 'nicoodoz', 'blamef']],
-    [75, ['art', 'kscerato', 'yuurih', 'chelo', 'saffee', 'skullz', 'insani', 'exit', 'dumau', 'latto', 'vini', 'hen1', 'lucas1', 'kngv', 'steel', 'boltz', 'felps', 'trk', 'coldzera']],
+    [75, ['art', 'kscerato', 'yuurih', 'chelo', 'saffee', 'skullz', 'insani', 'exit', 'dumau', 'latto', 'vini', 'hen1', 'lucas1', 'kngv', 'steel', 'felps', 'trk']],
     [70, ['nbk', 'shox', 'rpk', 'happy', 'smithzz', 'scream', 'ex6tenz', 'bodyy', 'amanek', 'jackz', 'misutaaa', 'kyojin', 'alex', 'woro2k', 'sdy', 'aleksib', 'mantuu', 'valde', 'k0nfig', 'es3tag']],
-    [65, ['pasha', 'neo', 'taz', 'byali', 'snax', 'michu', 'innocent', 'dycha', 'hades', 'sunny', 'allu', 'sergej', 'aerial', 'xseven', 'aleksib', 'ence', 'markeloff', 'starix', 'ceh9']],
+    [65, ['pasha', 'neo', 'taz', 'byali', 'michu', 'innocent', 'dycha', 'hades', 'sunny', 'allu', 'sergej', 'aerial', 'xseven', 'markeloff', 'starix', 'ceh9']],
   ];
 
   const BASE_FAME = new Map();
@@ -35,16 +41,36 @@
     ['heroic', 11], ['big', 10], ['the mongolz', 10], ['mibr', 10], ['imperial', 9],
   ]);
 
+  function productionPopularitySignal(player) {
+    const key = normalize(player?.nick || player?.nickname);
+    const signals = globalThis.FribergProductionData?.getPopularitySignals?.();
+    const signal = signals?.[key];
+    if (!signal) return 0;
+    const seen = Math.max(0, Number(signal.seen) || 0);
+    const revealed = Math.max(0, Number(signal.revealed) || 0);
+    const chosen = Math.max(0, Number(signal.chosen) || 0);
+    return Math.min(18, Math.log2(1 + seen) * 1.5 + Math.log2(1 + revealed) * 3 + Math.log2(1 + chosen) * 2);
+  }
+
   function popularityScore(player) {
     const nick = normalize(player?.nick || player?.nickname);
     const team = normalize(player?.gameTeam || player?.team);
+    const difficulty = normalize(player?.difficulty || player?.difficulties);
     const fame = BASE_FAME.get(nick) || 0;
     const teamScore = TEAM_FAME.get(team) || 0;
     const majorWins = Math.max(0, Number(player?.majorWins ?? player?.major_championships) || 0);
     const majorApps = Math.max(0, Number(player?.majorApps ?? player?.major_appearances) || 0);
     const active = player?.gameActive === true || player?.is_active === true ? 6 : 0;
     const legacy = majorWins > 0 ? 8 : 0;
-    return fame + teamScore + majorWins * 4 + Math.min(majorApps, 15) * 0.7 + active + legacy;
+    const famousPool = /easy|famous|入门|简单|知名/.test(difficulty) ? 34 : 0;
+    return fame
+      + teamScore
+      + majorWins * 4
+      + Math.min(majorApps, 15) * 0.7
+      + active
+      + legacy
+      + famousPool
+      + productionPopularitySignal(player);
   }
 
   function evaluateCandidate(session, player) {
@@ -79,28 +105,52 @@
     };
   }
 
+  function compareQuality(left, right) {
+    if (!right) return -1;
+    if (left.worstGroup !== right.worstGroup) return left.worstGroup - right.worstGroup;
+    if (left.expectedRemaining !== right.expectedRemaining) return left.expectedRemaining - right.expectedRemaining;
+    if (left.entropy !== right.entropy) return right.entropy - left.entropy;
+    return normalize(left.player.nick).localeCompare(normalize(right.player.nick));
+  }
+
+  function isNearOptimal(evaluation, best, candidateCount) {
+    if (candidateCount <= SMALL_DIRECT_ANSWER_THRESHOLD) return true;
+    const worstSlack = Math.max(1, Math.floor(candidateCount * 0.06));
+    const expectedLimit = best.expectedRemaining * EXPECTED_REMAINING_RATIO + EXPECTED_REMAINING_ABSOLUTE_SLACK;
+    return evaluation.worstGroup <= best.worstGroup + worstSlack
+      && evaluation.expectedRemaining <= expectedLimit;
+  }
+
   function chooseHumanCandidate(session) {
     const candidates = (session.lastCandidates || [])
       .filter(player => !session.guessedKeys?.has(Solver.playerKey(player)));
     if (candidates.length < 2 || candidates.length > HUMAN_ANSWER_THRESHOLD) return null;
 
-    const ranked = candidates
+    const evaluated = candidates
       .map(player => ({ player, popularity: popularityScore(player), evaluation: evaluateCandidate(session, player) }))
-      .filter(item => item.evaluation)
-      .sort((left, right) => {
-        if (right.popularity !== left.popularity) return right.popularity - left.popularity;
-        if (left.evaluation.worstGroup !== right.evaluation.worstGroup) return left.evaluation.worstGroup - right.evaluation.worstGroup;
-        if (left.evaluation.expectedRemaining !== right.evaluation.expectedRemaining) return left.evaluation.expectedRemaining - right.evaluation.expectedRemaining;
-        return normalize(left.player.nick).localeCompare(normalize(right.player.nick));
-      });
+      .filter(item => item.evaluation);
+    if (!evaluated.length) return null;
+
+    const qualityBest = evaluated
+      .map(item => item.evaluation)
+      .sort(compareQuality)[0];
+    const nearOptimal = evaluated.filter(item => isNearOptimal(item.evaluation, qualityBest, candidates.length));
+    const ranked = nearOptimal.sort((left, right) => {
+      if (right.popularity !== left.popularity) return right.popularity - left.popularity;
+      return compareQuality(left.evaluation, right.evaluation);
+    });
 
     const best = ranked[0];
     if (!best) return null;
+    const direct = candidates.length <= SMALL_DIRECT_ANSWER_THRESHOLD;
     return Object.freeze({
       ...best.evaluation,
       popularityScore: best.popularity,
       humanChoice: true,
-      reason: `剩余 ${candidates.length} 名候选，优先选择普通玩家更可能先想到的知名选手；信息指标作为同热度时的次级排序。`,
+      qualityGuarded: !direct,
+      reason: direct
+        ? `只剩 ${candidates.length} 名合法候选，命中概率相同，优先选择普通玩家更可能先想到的知名选手。`
+        : `剩余 ${candidates.length} 名候选，只在接近最优的信息分割内优先知名选手，避免小众探针显得反常。`,
     });
   }
 
@@ -119,7 +169,9 @@
 
   globalThis.FribergHumanChoice = Object.freeze({
     threshold: HUMAN_ANSWER_THRESHOLD,
+    smallDirectAnswerThreshold: SMALL_DIRECT_ANSWER_THRESHOLD,
     popularityScore,
+    evaluateCandidate,
     chooseHumanCandidate,
   });
 })();
