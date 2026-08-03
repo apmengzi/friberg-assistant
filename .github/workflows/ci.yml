@@ -39,6 +39,10 @@ jobs:
             'extension/autoplay-hotfix.js',
             'extension/overlay.js',
             'extension/options.js',
+            'extension/human-choice-policy.js',
+            'extension/production-data-sync.js',
+            'extension/data-sync-ui.js',
+            'tests/run-human-choice-policy.js',
             'tools/repository-security-audit.js'
           )
           foreach ($file in $files) {
@@ -65,6 +69,9 @@ jobs:
 
       - name: Run automation core contract
         run: node tests/run-automation-core.js
+
+      - name: Run human-choice policy contract
+        run: node tests/run-human-choice-policy.js
 
       - name: Run ScriptCat contract
         run: node tests/run-scriptcat-contract.js
