@@ -12,21 +12,27 @@ const styles = manifest.content_scripts[0].css;
 const matches = manifest.content_scripts[0].matches;
 
 assert.strictEqual(manifest.manifest_version, 3);
-assert.strictEqual(manifest.version, '0.9.8');
+assert.strictEqual(manifest.version, '0.9.8.2');
 assert.ok(matches.includes('https://shnlfriberg.online/multi*'));
 assert.ok(matches.includes('https://shnlfriberg.online/single*'));
 assert.ok(matches.includes('http://127.0.0.1/*'));
+assert.ok(manifest.host_permissions.includes('https://shnlfriberg.online/api/players*'));
 assert.ok(manifest.permissions.includes('storage'));
 assert.ok(manifest.permissions.includes('scripting'));
 assert.ok(fs.existsSync(path.join(root, 'extension/data/game-players-646.json')));
 assert.strictEqual(digest('solver.js'), digest('extension/solver.js'), 'extension must ship the audited solver');
 assert.strictEqual(digest('automation-core.js'), digest('extension/automation-core.js'), 'extension must ship the audited automation core');
 assert.strictEqual(digest('live-dom-adapter.js'), digest('extension/live-dom-adapter.js'), 'extension must ship the shared live DOM adapter');
+assert.ok(scripts.includes('human-choice-policy.js'));
+assert.ok(scripts.includes('production-data-sync.js'));
 assert.ok(scripts.includes('live-dom-adapter.js'));
 assert.ok(scripts.includes('feedback-parser-patch.js'));
 assert.ok(scripts.includes('autoplay.js'));
 assert.ok(scripts.includes('autoplay-hotfix.js'));
 assert.ok(styles.includes('autoplay.css'));
+assert.ok(scripts.indexOf('automation-core.js') < scripts.indexOf('human-choice-policy.js'));
+assert.ok(scripts.indexOf('live-dom-adapter.js') < scripts.indexOf('production-data-sync.js'));
+assert.ok(scripts.indexOf('production-data-sync.js') < scripts.indexOf('content-script.js'));
 assert.ok(scripts.indexOf('feedback-parser-patch.js') < scripts.indexOf('content-script.js'));
 assert.ok(scripts.indexOf('content-script.js') < scripts.indexOf('autoplay.js'));
 assert.ok(scripts.indexOf('autoplay.js') < scripts.indexOf('autoplay-hotfix.js'));
@@ -50,6 +56,21 @@ assert.ok(content.includes('collectLiveDiagnostic'));
 assert.ok(content.includes('feedbackPaused'));
 assert.ok(content.includes("data-friberg-app=\"mirror\""));
 assert.ok(content.includes('canPerformPageAction'));
+
+const humanChoice = read('extension/human-choice-policy.js');
+assert.ok(humanChoice.includes('HUMAN_ANSWER_THRESHOLD'));
+assert.ok(humanChoice.includes('popularityScore'));
+assert.ok(humanChoice.includes('chooseHumanCandidate'));
+assert.ok(humanChoice.includes('__fribergHumanChoicePatched'));
+assert.ok(humanChoice.includes('普通玩家更可能先想到的知名选手'));
+
+const productionData = read('extension/production-data-sync.js');
+assert.ok(productionData.includes('/api/players/list'));
+assert.ok(productionData.includes('/api/players?search='));
+assert.ok(productionData.includes('REQUEST_GAP_MS = 6500'));
+assert.ok(productionData.includes('visible-feedback-row'));
+assert.ok(productionData.includes('fribergProductionOverridesV1'));
+assert.ok(productionData.includes('siteVersion'));
 
 const overlay = read('extension/overlay.js');
 assert.ok(overlay.includes('data-fa-drag-handle'));
@@ -94,6 +115,8 @@ console.log(JSON.stringify({
   version: manifest.version,
   files: scripts.length,
   routes: matches.filter(match => match.includes('shnlfriberg.online')),
+  humanPriority: true,
+  productionSync: true,
   firstGuessSubmitBridge: true,
   status: 'passed',
 }));
