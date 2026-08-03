@@ -60,15 +60,52 @@
     return result;
   }
 
+  function patchIsCompletePlayer(patch) {
+    return Boolean(
+      usable(patch?.nickname)
+      && usable(patch?.nationality)
+      && usable(patch?.team)
+      && Number.isFinite(Number(patch?.age))
+      && usable(patch?.role)
+      && Number.isFinite(Number(patch?.major_championships))
+      && Number.isFinite(Number(patch?.major_appearances))
+      && typeof patch?.is_active === 'boolean',
+    );
+  }
+
+  function playerFromProductionPatch(patch, regions) {
+    const nationality = patch.nationality;
+    return {
+      id: patch.id,
+      nickname: patch.nickname,
+      nationality,
+      region: usable(patch.region) ? patch.region : regions.get(normalize(nationality)) || '',
+      team: patch.team,
+      age: Number(patch.age),
+      role: patch.role,
+      major_championships: Number(patch.major_championships),
+      major_appearances: Number(patch.major_appearances),
+      difficulties: Array.isArray(patch.difficulties) && patch.difficulties.length
+        ? patch.difficulties.slice()
+        : ['normal'],
+      is_active: patch.is_active,
+      is_enabled: true,
+      production_verified_at: patch.production_verified_at,
+      production_source: patch.source,
+    };
+  }
+
   function mergePool(pool) {
-    const regions = regionLookup(pool);
-    return (pool || []).map(player => {
+    const source = Array.isArray(pool) ? pool : [];
+    const regions = regionLookup(source);
+    const merged = source.map(player => {
       const key = normalize(player.nickname || player.nick);
       const patch = overrides[key];
       if (!patch) return player;
       const nationality = usable(patch.nationality) ? patch.nationality : player.nationality;
       return {
         ...player,
+        id: patch.id ?? player.id,
         nationality,
         region: usable(patch.region) ? patch.region : regions.get(normalize(nationality)) || player.region,
         team: usable(patch.team) ? patch.team : player.team,
@@ -80,10 +117,23 @@
         major_appearances: Number.isFinite(Number(patch.major_appearances))
           ? Number(patch.major_appearances)
           : player.major_appearances,
+        difficulties: Array.isArray(patch.difficulties) && patch.difficulties.length
+          ? patch.difficulties.slice()
+          : player.difficulties,
         is_active: typeof patch.is_active === 'boolean' ? patch.is_active : player.is_active,
         production_verified_at: patch.production_verified_at || player.production_verified_at,
+        production_source: patch.source || player.production_source,
       };
     });
+
+    const known = new Set(merged.map(player => normalize(player.nickname || player.nick)));
+    for (const patch of Object.values(overrides)) {
+      const key = normalize(patch?.nickname);
+      if (!key || known.has(key) || !patchIsCompletePlayer(patch)) continue;
+      merged.push(playerFromProductionPatch(patch, regions));
+      known.add(key);
+    }
+    return merged;
   }
 
   async function loadState() {
@@ -122,6 +172,7 @@
   function playerPatchFromApi(player) {
     if (!player || !usable(player.nickname)) return null;
     return {
+      id: player.id,
       nickname: player.nickname,
       nationality: player.nationality,
       region: player.region,
@@ -141,7 +192,7 @@
     const values = parsed?.reading?.visibleValues;
     if (!parsed?.valid || !usable(parsed.nickname) || !values) return null;
     const active = normalizedStatus(values.status);
-    const patch = {
+    return {
       nickname: parsed.nickname,
       nationality: usable(values.country) ? values.country : undefined,
       team: usable(values.team) ? values.team : undefined,
@@ -153,7 +204,6 @@
       production_verified_at: new Date().toISOString(),
       source: 'visible-feedback-row',
     };
-    return patch;
   }
 
   async function savePatch(patch) {
@@ -260,11 +310,13 @@
         siteVersion: version,
         total: players.length,
         pending: queue.length,
-        startedAt: meta.startedAt || new Date().toISOString(),
+        completed: versionChanged ? 0 : Number(meta.completed) || 0,
+        startedAt: versionChanged ? new Date().toISOString() : meta.startedAt || new Date().toISOString(),
+        finishedAt: versionChanged ? null : meta.finishedAt,
         lastRunAt: new Date().toISOString(),
       };
       await setStorage({ [META_KEY]: meta });
-      emitSync({ phase: 'start', version, total: players.length, pending: queue.length });
+      emitSync({ phase: 'start', version, total: players.length, pending: queue.length, completed: meta.completed });
 
       for (let index = 0; index < queue.length; index += 1) {
         if (document.visibilityState !== 'visible') break;
