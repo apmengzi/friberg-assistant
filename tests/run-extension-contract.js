@@ -25,6 +25,7 @@ assert.strictEqual(digest('automation-core.js'), digest('extension/automation-co
 assert.strictEqual(digest('live-dom-adapter.js'), digest('extension/live-dom-adapter.js'), 'extension must ship the shared live DOM adapter');
 assert.ok(scripts.includes('human-choice-policy.js'));
 assert.ok(scripts.includes('production-data-sync.js'));
+assert.ok(scripts.includes('data-sync-ui.js'));
 assert.ok(scripts.includes('live-dom-adapter.js'));
 assert.ok(scripts.includes('feedback-parser-patch.js'));
 assert.ok(scripts.includes('autoplay.js'));
@@ -33,6 +34,7 @@ assert.ok(styles.includes('autoplay.css'));
 assert.ok(scripts.indexOf('automation-core.js') < scripts.indexOf('human-choice-policy.js'));
 assert.ok(scripts.indexOf('live-dom-adapter.js') < scripts.indexOf('production-data-sync.js'));
 assert.ok(scripts.indexOf('production-data-sync.js') < scripts.indexOf('content-script.js'));
+assert.ok(scripts.indexOf('overlay.js') < scripts.indexOf('data-sync-ui.js'));
 assert.ok(scripts.indexOf('feedback-parser-patch.js') < scripts.indexOf('content-script.js'));
 assert.ok(scripts.indexOf('content-script.js') < scripts.indexOf('autoplay.js'));
 assert.ok(scripts.indexOf('autoplay.js') < scripts.indexOf('autoplay-hotfix.js'));
@@ -71,6 +73,11 @@ assert.ok(productionData.includes('REQUEST_GAP_MS = 6500'));
 assert.ok(productionData.includes('visible-feedback-row'));
 assert.ok(productionData.includes('fribergProductionOverridesV1'));
 assert.ok(productionData.includes('siteVersion'));
+
+const syncUi = read('extension/data-sync-ui.js');
+assert.ok(syncUi.includes('继续同步生产题库'));
+assert.ok(syncUi.includes('friberg:production-sync'));
+assert.ok(syncUi.includes('data-fa-production-sync-status'));
 
 const overlay = read('extension/overlay.js');
 assert.ok(overlay.includes('data-fa-drag-handle'));
@@ -117,6 +124,7 @@ console.log(JSON.stringify({
   routes: matches.filter(match => match.includes('shnlfriberg.online')),
   humanPriority: true,
   productionSync: true,
+  productionSyncUi: true,
   firstGuessSubmitBridge: true,
   status: 'passed',
 }));
