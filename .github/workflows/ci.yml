@@ -43,6 +43,7 @@ jobs:
             'extension/production-data-sync.js',
             'extension/data-sync-ui.js',
             'tests/run-human-choice-policy.js',
+            'tests/run-production-data-sync.js',
             'tools/repository-security-audit.js'
           )
           foreach ($file in $files) {
@@ -72,6 +73,9 @@ jobs:
 
       - name: Run human-choice policy contract
         run: node tests/run-human-choice-policy.js
+
+      - name: Run production data sync contract
+        run: node tests/run-production-data-sync.js
 
       - name: Run ScriptCat contract
         run: node tests/run-scriptcat-contract.js
