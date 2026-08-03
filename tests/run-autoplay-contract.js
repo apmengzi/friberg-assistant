@@ -12,7 +12,7 @@ const scripts = manifest.content_scripts[0].js;
 const styles = manifest.content_scripts[0].css;
 const matches = manifest.content_scripts[0].matches;
 
-assert.strictEqual(manifest.version, '0.9.8');
+assert.strictEqual(manifest.version, '0.9.8.2');
 assert.ok(matches.includes('https://shnlfriberg.online/multi*'));
 assert.ok(matches.includes('https://shnlfriberg.online/single*'));
 assert.ok(manifest.host_permissions.includes('https://shnlfriberg.online/single*'));
