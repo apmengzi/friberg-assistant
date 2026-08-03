@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Friberg Assistant — Live DOM Assist",
-  "version": "0.9.8",
-  "description": "弗一把可见反馈助手：多人本次匹配托管、单人本局全自动、完整版连续循环、严格求解与受控提交。",
+  "name": "Friberg Assistant — Human Priority",
+  "version": "0.9.8.2",
+  "description": "弗一把可见反馈助手：多人本次匹配托管、单人全自动、知名选手优先和生产题库渐进同步。",
   "permissions": [
     "storage",
     "scripting",
@@ -16,6 +16,7 @@
   "host_permissions": [
     "https://shnlfriberg.online/multi*",
     "https://shnlfriberg.online/single*",
+    "https://shnlfriberg.online/api/players*",
     "http://127.0.0.1/*",
     "http://localhost/*"
   ],
@@ -35,7 +36,9 @@
       "js": [
         "solver.js",
         "automation-core.js",
+        "human-choice-policy.js",
         "live-dom-adapter.js",
+        "production-data-sync.js",
         "feedback-parser-patch.js",
         "overlay.js",
         "live-qol.js",
@@ -53,7 +56,9 @@
         "solver-worker.js",
         "solver.js",
         "automation-core.js",
+        "human-choice-policy.js",
         "live-dom-adapter.js",
+        "production-data-sync.js",
         "feedback-parser-patch.js",
         "data/game-players-646.json"
       ],
