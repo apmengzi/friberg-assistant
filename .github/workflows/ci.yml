@@ -56,6 +56,9 @@ jobs:
       - name: Run automation core contract
         run: node tests/run-automation-core.js
 
+      - name: Build ScriptCat userscript
+        run: node tools/build-scriptcat-userscript.js
+
       - name: Run ScriptCat contract
         run: node tests/run-scriptcat-contract.js
 
