@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101314" />
+    <title>弗一把 · Scout Console</title>
+    <link rel="stylesheet" href="styles.css?v=20260728-strict1" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Scout Console 首页">
+        <span class="brand-mark"><i></i><i></i><i></i></span>
+        <span class="brand-copy"><strong>SCOUT CONSOLE</strong><small>弗一把 · PLAYER RECALL</small></span>
+      </a>
+      <div class="topbar-actions">
+        <span class="index-status"><span class="status-dot"></span><span id="dataStatus">GAME POOL / LOADING</span></span>
+        <button class="ghost-button" id="importButton" type="button">导入游戏题库</button>
+        <input id="importInput" type="file" accept=".json,.csv,application/json,text/csv" hidden />
+        <button class="ghost-button" id="exportButton" type="button">导出当前库</button>
+      </div>
+    </header>
+
+    <main id="top" class="app-shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow"><span>01</span> LIVE PLAYER RECALL</p>
+          <h1>在对面之前，<em>锁定选手。</em></h1>
+          <p class="hero-subtitle">把弗一把卡片上的每一格颜色变成严格条件：任何违反反馈的选手都不会进入候选队列。</p>
+        </div>
+        <div class="hero-readout" aria-label="本地索引统计">
+          <span class="readout-label">INDEXED PLAYERS</span>
+          <strong id="playerCount">0</strong>
+          <div class="readout-footer"><span>ALL-TIME READY</span><span class="pulse-line"></span><span id="latency">0 ms</span></div>
+        </div>
+      </section>
+
+      <section class="workspace-grid" aria-label="选手猜测工作区">
+        <aside class="control-panel panel">
+          <div class="panel-heading">
+            <div><span class="panel-kicker">INPUT / 线索</span><h2>把颜色翻译成条件</h2></div>
+            <span class="keycap">F2</span>
+          </div>
+
+          <label class="field-label" for="clueText">快速粘贴题面</label>
+          <div class="parse-box">
+            <textarea id="clueText" rows="3" placeholder="例：俄罗斯 24 步枪手 0 冠 8 次 现役"></textarea>
+            <button class="parse-button" id="parseButton" type="button" title="解析题面">解析 <span>↵</span></button>
+          </div>
+          <div class="hint-row" aria-label="快速示例">
+            <button type="button" class="hint-chip" data-example="俄罗斯 24 步枪手 0 冠 8 次 现役">俄罗斯 · 24 · 步枪</button>
+            <button type="button" class="hint-chip" data-example="丹麦 25 狙击手 1 冠 7 次 非现役">丹麦 · 25 · 狙击</button>
+            <button type="button" class="hint-chip" data-example="亚洲 19 到 24 步枪手 0 冠">亚洲 · 年龄段</button>
+          </div>
+
+          <section class="vision-card" aria-labelledby="visionTitle">
+            <div class="panel-heading compact">
+              <div><span class="panel-kicker">VISION / 截图</span><h2 id="visionTitle">把颜色读成条件</h2></div>
+              <span class="keycap">CTRL+V</span>
+            </div>
+            <div class="vision-dropzone" id="visionDropzone" tabindex="0">
+              <input id="visionInput" type="file" accept="image/*" hidden />
+              <button class="vision-button" id="visionButton" type="button">导入截图</button>
+              <span class="vision-drop-title">或直接在这里粘贴图片</span>
+              <small>自动定位最近一行的 7 个反馈格；昵称列不会参与识别</small>
+            </div>
+            <div class="vision-player-row">
+              <label class="field-label" for="visionPlayer">这行猜的是谁？</label>
+              <div class="vision-player-control">
+                <input id="visionPlayer" list="visionPlayerList" type="search" placeholder="输入昵称，例如 Ax1Le" autocomplete="off" />
+                <datalist id="visionPlayerList"></datalist>
+                <button class="vision-apply" id="visionApply" type="button" disabled>应用颜色</button>
+              </div>
+              <small class="vision-note">颜色由截图读取；昵称只需在本地题库选一次。读数格可点击校正；队伍、位置、状态没有黄色反馈。</small>
+              <p class="vision-warning" id="visionWarning" hidden></p>
+            </div>
+            <div class="vision-preview-wrap" id="visionPreviewWrap" hidden>
+              <img id="visionPreview" class="vision-preview" alt="待识别的弗一把截图" />
+              <div class="vision-readout-panel">
+                <span class="panel-kicker">READOUT / 最近一行</span>
+                <strong id="visionReadout">等待截图</strong>
+                <div class="vision-cells" id="visionCells"></div>
+              </div>
+            </div>
+            <div class="vision-direction" id="visionDirection" hidden>
+              <span>数字箭头会自动尝试读取；不确定时可在这里手动校正</span>
+              <label>年龄 <select id="visionAgeDirection"><option value="none">无</option><option value="up">答案更高 ↑</option><option value="down">答案更低 ↓</option></select></label>
+              <label>冠军 <select id="visionWinsDirection"><option value="none">无</option><option value="up">答案更高 ↑</option><option value="down">答案更低 ↓</option></select></label>
+              <label>参赛 <select id="visionAppsDirection"><option value="none">无</option><option value="up">答案更高 ↑</option><option value="down">答案更低 ↓</option></select></label>
+            </div>
+          </section>
+
+          <div class="section-rule"><span>精确筛选 / 排除 / 接近</span><span class="rule-line"></span></div>
+          <div class="clue-list" id="clueList"></div>
+
+          <div class="control-footer">
+            <label class="toggle"><input id="strictMode" type="checkbox" checked /><span class="toggle-track"></span><span>手动筛选严格</span></label>
+            <div class="footer-actions"><button class="text-button" id="undoButton" type="button">撤销上一猜</button><button class="text-button" id="resetButton" type="button">清空线索</button></div>
+          </div>
+        </aside>
+
+        <section class="results-panel panel" aria-live="polite">
+          <div class="results-heading">
+            <div>
+              <span class="panel-kicker">02 / MATCH QUEUE</span>
+              <h2 id="resultsTitle">等待线索</h2>
+              <p id="resultsMeta">输入题面，候选会在本地索引中即时重排。</p>
+            </div>
+            <div class="results-tools">
+              <button class="round-button" id="newRoundButton" type="button" title="清除当前回合的所有猜测和线索">新一局</button>
+              <div class="search-wrap">
+                <span class="search-icon">⌕</span>
+                <input id="searchInput" type="search" placeholder="查昵称、国家、战队…" autocomplete="off" />
+                <span class="keycap">/</span>
+              </div>
+            </div>
+          </div>
+          <div class="recommendation-strip" id="recommendationStrip" aria-live="polite">
+            <div><span>立即猜</span><strong id="bestAnswer">—</strong></div>
+            <div><span>推荐下一猜</span><strong id="bestProbe">—</strong></div>
+            <div><span>剩余候选</span><strong id="remainingCount">0</strong></div>
+          </div>
+          <div class="active-filters" id="activeFilters"></div>
+          <div class="result-grid" id="resultGrid"></div>
+          <div class="empty-state" id="emptyState">
+            <div class="empty-orbit"><span></span><span></span><span></span></div>
+            <h3>候选池是空的</h3>
+            <p>先填一个颜色线索，或者直接粘贴一行题面。</p>
+          </div>
+        </section>
+      </section>
+
+      <section class="lower-grid">
+        <article class="guide-card panel">
+          <div class="panel-heading compact"><div><span class="panel-kicker">FIELD NOTES</span><h2>三秒工作流</h2></div><span class="tiny-mark">SC-01</span></div>
+          <div class="workflow">
+            <div class="workflow-step"><span>01</span><div><strong>贴截图</strong><p>Ctrl+V、导入或拖入弗一把的结果截图。</p></div></div>
+            <div class="workflow-step"><span>02</span><div><strong>选猜测</strong><p>用本地题库选出截图这一行猜的昵称。</p></div></div>
+            <div class="workflow-step"><span>03</span><div><strong>报答案</strong><p>颜色变成候选排序，点第一张卡复制昵称。</p></div></div>
+          </div>
+        </article>
+        <article class="data-card panel">
+          <div class="panel-heading compact"><div><span class="panel-kicker">DATA DECK</span><h2>题库状态</h2></div><span class="tiny-mark">GAME POOL / 646</span></div>
+          <div class="data-stats">
+            <div><span>当前记录</span><strong id="dataCount">0</strong></div>
+            <div><span>字段完整度</span><strong id="dataCompleteness">—</strong></div>
+            <div><span>更新时间</span><strong id="dataUpdated">读取中</strong></div>
+          </div>
+          <p class="data-note">游戏题库是求解唯一权威来源。导入文件必须是兼容且不少于 600 人的游戏题库；HLTV 扩展数据不能覆盖游戏字段或改变颜色规则。</p>
+        </article>
+      </section>
+
+      <footer class="footer-note"><span>SCOUT CONSOLE / companion tool</span><span>本地推理 · 手动提交 · 不读取或操控对战页面</span></footer>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="solver.js?v=20260728-strict1"></script>
+    <script src="app.js?v=20260728-strict1"></script>
+  </body>
+</html>

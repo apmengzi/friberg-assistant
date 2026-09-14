@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Optional, non-authoritative HLTV enrichment. Never overwrite game-solving fields.",
+  "players": [
+    {
+      "nickname": "example",
+      "hltvId": null,
+      "profileUrl": null,
+      "rating2": null,
+      "collectedAt": null
+    }
+  ]
+}

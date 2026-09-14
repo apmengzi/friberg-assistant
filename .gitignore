@@ -1,0 +1,47 @@
+.env
+.env.*
+*.log
+*.zip
+node_modules/
+
+# Local automation configuration and browser snapshots
+.codex/
+.playwright-mcp/
+
+# Python/runtime caches
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local secrets and license records
+seller-secrets/
+license-records/
+**/private-license-key.pem
+**/private-*.pem
+**/*admin*token*
+**/*signing*secret*
+
+# Runtime output and evidence bundles
+work/server.err
+work/server.out
+diagnostics/
+evidence/
+logs/*.jsonl
+
+# Downloaded/generated audit materials
+artifacts/live-site-assets/
+artifacts/backups/
+
+# --- public release hygiene (2026-09-15) ---
+commercial/
+seller-tools/
+work/
+mirror/
+logs/
+outputs/
+artifacts/
+dist/
+node_modules/
+__pycache__/
+*.log
+*.zip
