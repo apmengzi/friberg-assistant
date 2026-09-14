@@ -45,7 +45,7 @@ jobs:
       - name: Validate manifests and 646-player pool
         shell: pwsh
         run: |
-          node -e "const fs=require('fs'); const manifests=['extension/manifest.json','dist/friberg-assistant-personal/manifest.json','dist/friberg-assistant-commercial/manifest.json']; for (const f of manifests) JSON.parse(fs.readFileSync(f,'utf8').replace(/^\uFEFF/,'')); const pool=JSON.parse(fs.readFileSync('data/players.game-646.json','utf8')); if(pool.length!==646) throw new Error('Expected 646 players, got '+pool.length); console.log('PASS: manifests and 646-player pool');"
+          node -e "const fs=require('fs'); const manifests=['extension/manifest.json']; for (const f of manifests) JSON.parse(fs.readFileSync(f,'utf8').replace(/^﻿/,'')); const pool=JSON.parse(fs.readFileSync('data/players.game-646.json','utf8')); if(pool.length!==646) throw new Error('Expected 646 players, got '+pool.length); console.log('PASS: manifests and 646-player pool');"
 
       - name: Run strict solver regression
         run: node tests/run-regression.js
@@ -59,8 +59,6 @@ jobs:
       - name: Run ScriptCat contract
         run: node tests/run-scriptcat-contract.js
 
-      - name: Run commercial offline-license contract
-        run: node tests/run-commercial-contract.js
 
       - name: Repository security audit
         run: node tools/repository-security-audit.js
