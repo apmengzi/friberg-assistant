@@ -1,5 +1,9 @@
 # 弗一把助手 · Friberg Assistant
 
+> ⚠️ **维护状态：本插件最后维护时间为 2026 年 8 月初，现已不可用于线上环境。**
+> 目标站点此后的页面改版与规则变动未再跟进——上游选择器、赛事数据与应答逻辑均已过期。
+> 仓库保留作为**工程样本**：约束求解算法、渐进式 DOM 识别、双形态分发与 full-matrix 契约审计方法仍具参考价值，可作为同类项目的实现参考阅读。
+
 > 面向「弗一把」CS Major 猜选手游戏的辅助浏览器插件：646 人职业选手题库 + 严格约束求解器 + Edge/Chrome 扩展 + ScriptCat 用户脚本 + 本地全自动测试镜像。
 
 ![version](https://img.shields.io/badge/version-1.1.0-blue) ![platform](https://img.shields.io/badge/platform-Edge%20%7C%20Chrome%20%7C%20ScriptCat-green) ![license](https://img.shields.io/badge/license-MIT-orange)
